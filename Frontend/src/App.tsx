@@ -1,30 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Whiteboard } from './components/Whiteboard';
 import { Toolbar } from './components/Toolbar';
-import { BookPlus, FolderOpen, ArrowRight, LogIn, Copy } from 'lucide-react';
+import { BookPlus, FolderOpen, ArrowRight, LogIn, Copy, LogOut, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
+
+interface User {
+  _id: string;
+  googleId?: string;
+  username: string;
+  email: string;
+}
 
 export default function App() {
-  const [user, setUser] = useState<string | null>(null); // 'admin' or 'admin1'
-  const [usernameInput, setUsernameInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [error, setError] = useState('');
-
+  const [user, setUser] = useState<User | null>(null);
   const [roomId, setRoomId] = useState('');
   const [isInStudio, setIsInStudio] = useState(false);
+  
+  // Auth State
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+  const [error, setError] = useState('');
 
-  // 1. Login Logic
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      (usernameInput === 'admin' && passwordInput === 'admin') ||
-      (usernameInput === 'admin1' && passwordInput === 'admin1')
-    ) {
-      setUser(usernameInput);
-      setError('');
-    } else {
-      setError('Invalid credentials. Use admin/admin or admin1/admin1');
-    }
-  };
+  // 1. Session Check
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/current_user', {
+          credentials: 'include', // Important for cookies
+        });
+        const data = await res.json();
+        if (data && data._id) {
+          setUser(data);
+        }
+      } catch (err) {
+        console.log('Not logged in');
+      }
+    };
+    fetchUser();
+  }, []);
 
   // 2. Room Logic
   const createNotebook = () => {
@@ -45,42 +57,149 @@ export default function App() {
     alert('Room ID copied!');
   };
 
+  // 3. Auth Handlers
+  const handleGoogleLogin = () => {
+    window.location.href = "http://localhost:3000/auth/google";
+  };
+
+  const handleLogout = () => {
+    window.location.href = "http://localhost:3000/auth/logout";
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    const endpoint = authMode === 'signin' ? '/api/login' : '/api/register';
+    
+    try {
+      const res = await fetch(`http://localhost:3000${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || 'Authentication failed');
+      }
+
+      setUser(data);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   // --- VIEW: LOGIN ---
   if (!user) {
     return (
       <div className="min-h-screen bg-paper-bg flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow-lg border border-paper-border w-full max-w-md">
-          <h1 className="text-3xl font-bold text-paper-accent mb-2 text-center">Lets Draw</h1>
-          <p className="text-gray-500 text-center mb-6">Sign in to your notebook</p>
-          
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-paper-text mb-1">Username</label>
-              <input
-                type="text"
-                value={usernameInput}
-                onChange={(e) => setUsernameInput(e.target.value)}
-                className="w-full border border-paper-border rounded-lg px-4 py-2 focus:border-paper-accent outline-none bg-paper-bg"
-                placeholder="admin or admin1"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-paper-text mb-1">Password</label>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full border border-paper-border rounded-lg px-4 py-2 focus:border-paper-accent outline-none bg-paper-bg"
-                placeholder="••••••"
-              />
-            </div>
-            
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-
-            <button type="submit" className="w-full bg-paper-accent text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-              <LogIn size={20} /> Sign In
+        <div className="bg-white rounded-xl shadow-lg border border-paper-border w-full max-w-md overflow-hidden">
+          {/* Tabs */}
+          <div className="flex border-b border-paper-border">
+            <button
+              onClick={() => { setAuthMode('signin'); setError(''); }}
+              className={`flex-1 py-4 font-bold text-sm transition-colors ${
+                authMode === 'signin' 
+                  ? 'text-paper-accent border-b-2 border-paper-accent bg-blue-50/50' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Sign In
             </button>
-          </form>
+            <button
+              onClick={() => { setAuthMode('signup'); setError(''); }}
+              className={`flex-1 py-4 font-bold text-sm transition-colors ${
+                authMode === 'signup' 
+                  ? 'text-paper-accent border-b-2 border-paper-accent bg-blue-50/50' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <div className="p-8">
+            <h1 className="text-2xl font-bold text-center text-paper-text mb-2">
+              {authMode === 'signin' ? 'Welcome Back' : 'Create Account'}
+            </h1>
+            <p className="text-center text-gray-500 mb-6 text-sm">
+              {authMode === 'signin' ? 'Enter your details to sign in' : 'Start your creative journey today'}
+            </p>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              {authMode === 'signup' && (
+                <div className="relative">
+                  <UserIcon className="absolute left-3 top-3 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    name="username"
+                    placeholder="Full Name"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-2 border border-paper-border rounded-lg outline-none focus:border-paper-accent transition-colors"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email Address"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-4 py-2 border border-paper-border rounded-lg outline-none focus:border-paper-accent transition-colors"
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-4 py-2 border border-paper-border rounded-lg outline-none focus:border-paper-accent transition-colors"
+                  required
+                />
+              </div>
+
+              {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+              <button 
+                type="submit" 
+                className="w-full bg-paper-accent text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                {authMode === 'signin' ? <LogIn size={20} /> : <UserPlus size={20} />}
+                {authMode === 'signin' ? 'Sign In' : 'Create Account'}
+              </button>
+            </form>
+
+            <div className="flex items-center my-6">
+              <div className="flex-1 h-px bg-gray-200"></div>
+              <span className="px-3 text-gray-400 text-xs font-bold">OR</span>
+              <div className="flex-1 h-px bg-gray-200"></div>
+            </div>
+
+            <button 
+              onClick={handleGoogleLogin}
+              className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-3"
+            >
+              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+              {authMode === 'signin' ? 'Continue with Google' : 'Sign up with Google'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -89,9 +208,16 @@ export default function App() {
   // --- VIEW: LOBBY ---
   if (!isInStudio) {
     return (
-      <div className="min-h-screen bg-paper-bg flex flex-col items-center justify-center p-4 text-paper-text font-sans">
+      <div className="min-h-screen bg-paper-bg flex flex-col items-center justify-center p-4 text-paper-text font-sans relative">
+        <button 
+          onClick={handleLogout}
+          className="absolute top-4 right-4 flex items-center gap-2 text-gray-500 hover:text-red-500 transition-colors"
+        >
+          <LogOut size={20} /> Logout
+        </button>
+
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-paper-accent">Welcome, {user}</h1>
+          <h1 className="text-4xl font-bold text-paper-accent">Welcome, {user.username}</h1>
           <p className="text-gray-500 mt-2">Choose an option to start drawing</p>
         </div>
         
