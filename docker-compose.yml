@@ -1,0 +1,56 @@
+services:
+  # MongoDB
+  mongo:
+    image: mongo:7
+    container_name: drawwww-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - drawwww-net
+
+  # Backend API
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: drawwww-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/drawwww
+      - PORT=3000
+      - CLIENT_URL=http://localhost
+      - COOKIE_KEY=${COOKIE_KEY:-your_secret_key_change_me}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+    depends_on:
+      - mongo
+    networks:
+      - drawwww-net
+
+  # Frontend (nginx)
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3000
+    container_name: drawwww-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - drawwww-net
+
+volumes:
+  mongo_data:
+
+networks:
+  drawwww-net:
+    driver: bridge
