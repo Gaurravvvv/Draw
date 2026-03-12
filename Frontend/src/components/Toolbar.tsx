@@ -1,22 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { APP_CONFIG } from '../constants';
 import type { ToolConfig, ToolId } from '../constants';
+import { Undo2, Redo2 } from 'lucide-react';
 
 export const Toolbar = () => {
-  const { 
-    activeTool, 
-    setActiveTool, 
-    activeColor, 
-    setActiveColor, 
-    brushSize, 
-    setBrushSize 
+  const {
+    activeTool,
+    setActiveTool,
+    activeColor,
+    setActiveColor,
+    brushSize,
+    setBrushSize,
   } = useStore();
 
   const [activePopover, setActivePopover] = useState<string | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setActivePopover(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleToolClick = (tool: ToolConfig) => {
-    // If tool has variants, toggle popover
     if (tool.variants) {
       if (activePopover === tool.id) {
         setActivePopover(null);
@@ -24,7 +36,6 @@ export const Toolbar = () => {
         setActivePopover(tool.id);
       }
     } else {
-      // Direct selection for simple tools
       setActiveTool(tool.id as ToolId);
       setActivePopover(null);
     }
@@ -38,28 +49,38 @@ export const Toolbar = () => {
   const isToolActive = (tool: ToolConfig) => {
     if (activeTool === tool.id) return true;
     if (tool.variants) {
-      return tool.variants.some(v => v.id === activeTool);
+      return tool.variants.some((v) => v.id === activeTool);
     }
     return false;
   };
 
+  // Dispatch custom events for undo/redo (Whiteboard listens)
+  const handleUndo = () => {
+    window.dispatchEvent(new CustomEvent('canvas-undo'));
+  };
+
+  const handleRedo = () => {
+    window.dispatchEvent(new CustomEvent('canvas-redo'));
+  };
+
   return (
-    <div className="fixed top-4 left-4 flex flex-col gap-4 bg-white p-3 rounded-lg shadow-sm border border-paper-border z-50 w-16 items-center">
-      
+    <div
+      ref={toolbarRef}
+      className="fixed top-4 left-4 flex flex-col gap-4 bg-white p-3 rounded-lg shadow-sm border border-paper-border z-50 w-16 items-center"
+    >
       {/* Tool Icons */}
       <div className="flex flex-col gap-2 w-full relative">
         {APP_CONFIG.TOOLBAR.TOOLS.map((tool) => {
           const isActive = isToolActive(tool);
-          
+
           return (
             <div key={tool.id} className="relative flex items-center group">
               <button
                 onClick={() => handleToolClick(tool)}
-                className={`p-2 rounded-md transition-all flex justify-center w-full relative ${
-                  isActive 
-                    ? 'bg-paper-accent text-white' 
+                className={`p-2 rounded-md transition-all flex justify-center w-full relative ${isActive
+                    ? 'bg-paper-accent text-white'
                     : 'text-gray-500 hover:bg-gray-100'
-                }`}
+                  }`}
                 title={tool.label}
               >
                 <tool.icon size={20} />
@@ -75,11 +96,10 @@ export const Toolbar = () => {
                     <button
                       key={variant.id}
                       onClick={() => handleVariantClick(variant.id)}
-                      className={`flex items-center gap-2 p-2 rounded text-sm text-left ${
-                        activeTool === variant.id
+                      className={`flex items-center gap-2 p-2 rounded text-sm text-left ${activeTool === variant.id
                           ? 'bg-paper-accent/10 text-paper-accent font-medium'
                           : 'text-gray-600 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <variant.icon size={16} />
                       {variant.label}
@@ -94,13 +114,33 @@ export const Toolbar = () => {
 
       <div className="w-full h-px bg-paper-border" />
 
+      {/* Undo / Redo */}
+      <div className="flex gap-1 w-full">
+        <button
+          onClick={handleUndo}
+          className="flex-1 p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-all flex justify-center"
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo2 size={18} />
+        </button>
+        <button
+          onClick={handleRedo}
+          className="flex-1 p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-all flex justify-center"
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo2 size={18} />
+        </button>
+      </div>
+
+      <div className="w-full h-px bg-paper-border" />
+
       {/* Color Picker */}
       <div className="relative group w-8 h-8 flex-shrink-0">
-        <div 
+        <div
           className="w-full h-full rounded-full border border-paper-border cursor-pointer shadow-sm"
           style={{ backgroundColor: activeColor }}
         />
-        <input 
+        <input
           type="color"
           value={activeColor}
           onChange={(e) => setActiveColor(e.target.value)}
@@ -121,7 +161,6 @@ export const Toolbar = () => {
           title={`Size: ${brushSize}px`}
         />
       </div>
-
     </div>
   );
 };
