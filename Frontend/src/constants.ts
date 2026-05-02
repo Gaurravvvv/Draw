@@ -32,7 +32,7 @@ export const APP_CONFIG = {
   CANVAS: {
     DEFAULT_WIDTH: 800,
     DEFAULT_HEIGHT: 600,
-    BACKGROUND_COLOR: "#FDFBF7", 
+    BACKGROUND_COLOR: "", // Leave blank to be transparent and use CSS body background
   },
   TOOLBAR: {
     TOOLS: [
@@ -50,6 +50,7 @@ export const APP_CONFIG = {
         variants: [
           { id: "pencil-sketch", icon: Pencil, label: "Sketch", width: 3 },
           { id: "pencil-marker", icon: Highlighter, label: "Marker", width: 10, opacity: 0.7 },
+          { id: "pencil-highlighter", icon: Highlighter, label: "Highlighter", width: 15, opacity: 0.5 },
           { id: "pencil-spray", icon: SprayCan, label: "Spray", width: 20 },
           { id: "pencil-neon", icon: Zap, label: "Neon", width: 5 }
         ]
@@ -107,6 +108,7 @@ export type ToolId =
   | "pencil" 
   | "pencil-sketch" 
   | "pencil-marker" 
+  | "pencil-highlighter"
   | "pencil-spray" 
   | "pencil-neon"
   | "shapes"

@@ -1,23 +1,23 @@
 # Drawwww
 
-A modern, real-time collaborative drawing application built with React, Fabric.js, and Socket.io.
+A modern, ultra-low latency collaborative drawing application built with React, Socket.io, and a custom **High-Performance HTML5 Raster Engine**.
 
 ## 🚀 Features
 
-- **Real-time Collaboration**: Instantly see what others are drawing.
+- **Real-time Collaboration**: Instantly see what others are drawing via optimized command-log syncing.
+- **Advanced 3-Layer Raster Engine**: 
+    - Replaced traditional heavy vector libraries with a custom raw Canvas 2D engine for iPad-like drawing performance.
+    - Features `perfect-freehand` for silky smooth, pressure-simulated strokes.
 - **Advanced Tools**:
-    - **Pencil Variants**: Sketch, Marker (Highlighter), Spray, and Neon (Glow).
-    - **Object Eraser**: Click objects to remove them from the canvas.
-    - **Extended Shapes**: Rectangle, Circle, Triangle, Diamond, Star, Hexagon, Arrow.
-    - **Text Tool**: Add text annotations.
-    - **Undo/Redo**: Full command history for your drawing actions.
-- **Smart UI**:
-    - Nested sub-menus for tool variants.
-    - Configuration-driven architecture.
-    - Toast notifications and connection status indicators.
-    - Responsive and clean interface.
-- **Room System**: Create or join private rooms for collaboration.
-- **Persistent Rooms**: Canvas state is saved to the database and survives server restarts.
+    - **Pencil Variants**: Sketch, Marker, Spray, and **Highlighter** (using `multiply` compositing).
+    - **True Pixel Eraser**: A destructive `destination-out` eraser that perfectly cuts through raster pixels in real-time.
+    - **Fluid Shapes**: Rectangle, Circle, Triangle, Diamond, Star, Hexagon, Arrow (baked instantly to raster).
+- **Hybrid Object Overlay (Text)**: 
+    - Instagram-style floating text annotations! Text floats in a DOM layer above the canvas.
+    - Drag to move, type to auto-resize, and pull the handle to scale natively without interfering with raster artwork.
+- **Smart Viewport**:
+    - A fixed 1920x1080 canvas that automatically scales to perfectly fit any device screen without pixel distortion or scrollbars.
+- **Persistent Rooms**: Canvas state (both raster commands and floating objects) is saved to MongoDB and survives server restarts.
 
 ## 🛠️ Setup & Installation
 
@@ -81,9 +81,10 @@ npm run dev
 2.  **Sign Up** with your email and password, or **Sign In** with Google.
 3.  **Create or Join a Room** from the lobby.
 4.  **Start Drawing!**
-    - Click **Pencil** to choose between Sketch, Marker, Spray, or Neon.
-    - Click **Shapes** to drag-and-drop geometric forms.
-    - Use the **Eraser** to click and remove objects.
+    - Click **Pencil** to choose between Sketch, Marker, Highlighter, or Spray.
+    - Click **Shapes** to drag-and-drop geometric forms (these bake immediately into the canvas).
+    - Click **Text** to drop an Instagram-style text box. Click and drag the text to move it, or drag the bottom-right corner dot to scale it up.
+    - Use the **Eraser** to slice through raster ink (Note: The eraser does not affect floating Text).
     - Use **Undo/Redo** buttons or `Ctrl+Z` / `Ctrl+Y`.
 5.  Share the Room ID with a friend to collaborate in real-time.
 
@@ -92,25 +93,23 @@ npm run dev
 ```
 ├── docker-compose.yml          # Full stack orchestration
 ├── Backend/
-│   ├── Dockerfile
 │   ├── index.ts                # Express entry point
-│   ├── config/passport.ts      # Passport.js / Google OAuth
 │   ├── routes/auth.ts          # Auth routes (register, login)
 │   ├── socket/handlers.ts      # Socket.io real-time handlers
 │   └── models/
 │       ├── User.ts             # User model
-│       └── Room.ts             # Room persistence model
+│       └── Room.ts             # Room persistence model (stores commands + texts)
 └── Frontend/
-    ├── Dockerfile
-    ├── nginx.conf              # Production nginx config
     └── src/
-        ├── App.tsx             # Main app (auth, lobby, studio)
+        ├── App.tsx             # Main app
         ├── store.ts            # Zustand global state
-        ├── constants.ts        # Tool configuration
+        ├── engine/             # Custom HTML5 Canvas Engine
+        │   ├── RasterBrush.ts  # Brush physics & compositing logic
+        │   └── RasterShapes.ts # Geometry rendering
         └── components/
-            ├── Whiteboard.tsx  # Canvas + drawing + socket sync
-            ├── Toolbar.tsx     # Tool selection + undo/redo
-            └── Toast.tsx       # Toast notifications
+            ├── RasterWhiteboard.tsx # 3-Layer Canvas system
+            ├── DraggableText.tsx    # Hybrid DOM Object Layer
+            └── Toolbar.tsx          # UI Controls
 ```
 
 ## 🔧 Configuration
@@ -126,5 +125,3 @@ npm run dev
 
 **Frontend** (see `Frontend/.env.example`):
 - `VITE_API_URL` — Backend API URL (default: http://localhost:3000)
-
-Customize tools, colors, and default settings in `Frontend/src/constants.ts`.

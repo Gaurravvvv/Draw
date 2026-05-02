@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "fabric": "^5.3.0",
     "lucide-react": "^0.563.0",
+    "perfect-freehand": "^1.2.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "socket.io-client": "^4.8.3",
@@ -23,7 +23,6 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@tailwindcss/postcss": "^4.1.18",
-    "@types/fabric": "^5.3.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",

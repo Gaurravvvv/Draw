@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Whiteboard } from './components/Whiteboard';
+import { RasterWhiteboard } from './components/RasterWhiteboard';
 import { Toolbar } from './components/Toolbar';
 import { Toast } from './components/Toast';
 import { useStore } from './store';
@@ -322,7 +322,7 @@ export default function App() {
         </div>
       )}
 
-      <Whiteboard roomId={roomId} />
+      <RasterWhiteboard roomId={roomId} />
       <Toast message={toastMessage} visible={toastVisible} type={toastType} onClose={hideToast} />
     </div>
   );

@@ -24,4 +24,12 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Q9/I7 FIX: Strip password from all JSON responses automatically
+userSchema.set('toJSON', {
+  transform: (_doc, ret) => {
+    delete ret.password;
+    return ret;
+  }
+});
+
 export const User = mongoose.model('User', userSchema);

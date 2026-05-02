@@ -12,6 +12,9 @@ export const Toolbar = () => {
     setActiveColor,
     brushSize,
     setBrushSize,
+    // Q2 FIX: Use store actions instead of window.dispatchEvent
+    triggerUndo,
+    triggerRedo,
   } = useStore();
 
   const [activePopover, setActivePopover] = useState<string | null>(null);
@@ -52,15 +55,6 @@ export const Toolbar = () => {
       return tool.variants.some((v) => v.id === activeTool);
     }
     return false;
-  };
-
-  // Dispatch custom events for undo/redo (Whiteboard listens)
-  const handleUndo = () => {
-    window.dispatchEvent(new CustomEvent('canvas-undo'));
-  };
-
-  const handleRedo = () => {
-    window.dispatchEvent(new CustomEvent('canvas-redo'));
   };
 
   return (
@@ -114,17 +108,17 @@ export const Toolbar = () => {
 
       <div className="w-full h-px bg-paper-border" />
 
-      {/* Undo / Redo */}
+      {/* Undo / Redo — Q2 FIX: Uses store actions */}
       <div className="flex gap-1 w-full">
         <button
-          onClick={handleUndo}
+          onClick={triggerUndo}
           className="flex-1 p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-all flex justify-center"
           title="Undo (Ctrl+Z)"
         >
           <Undo2 size={18} />
         </button>
         <button
-          onClick={handleRedo}
+          onClick={triggerRedo}
           className="flex-1 p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-all flex justify-center"
           title="Redo (Ctrl+Y)"
         >

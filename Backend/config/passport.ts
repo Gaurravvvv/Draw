@@ -7,10 +7,15 @@ export function configurePassport() {
     done(null, user.id);
   });
 
+  // B1 FIX: Added .catch() to prevent hanging requests when DB is down
   passport.deserializeUser((id, done) => {
-    User.findById(id).then((user) => {
-      done(null, user);
-    });
+    User.findById(id)
+      .then((user) => {
+        done(null, user);
+      })
+      .catch((err) => {
+        done(err, null);
+      });
   });
 
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -21,12 +26,15 @@ export function configurePassport() {
     return;
   }
 
+  // Q10 FIX: Build full callback URL from env to work behind reverse proxies
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
+
   passport.use(
     new GoogleStrategy(
       {
         clientID: googleClientId,
         clientSecret: googleClientSecret,
-        callbackURL: '/auth/google/callback',
+        callbackURL: `${backendUrl}/auth/google/callback`,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
