@@ -23,7 +23,7 @@ services:
     environment:
       - MONGO_URI=mongodb://mongo:27017/drawwww
       - PORT=3000
-      - CLIENT_URL=http://localhost:3001
+      - CLIENT_URL=http://localhost
       - COOKIE_KEY=${COOKIE_KEY:-your_secret_key_change_me}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
@@ -42,7 +42,7 @@ services:
     container_name: drawwww-frontend
     restart: unless-stopped
     ports:
-      - "3001:80"
+      - "80:80"
     depends_on:
       - backend
     networks:

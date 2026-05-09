@@ -10,16 +10,22 @@ A modern, ultra-low latency collaborative drawing application built with React, 
     - Features `perfect-freehand` for silky smooth, pressure-simulated strokes.
 - **Advanced Tools**:
     - **Pencil Variants**: Sketch, Marker, Spray, and **Highlighter** (using `multiply` compositing).
+    - **Flood Fill**: Intelligent canvas region filling.
     - **True Pixel Eraser**: A destructive `destination-out` eraser that perfectly cuts through raster pixels in real-time.
-    - **Fluid Shapes**: Rectangle, Circle, Triangle, Diamond, Star, Hexagon, Arrow (baked instantly to raster). Hold `Shift` for perfect constraint snapping!
+    - **Fluid Shapes**: Rectangle, Circle, Triangle, Diamond, Star, Hexagon, Arrow (baked instantly to raster).
+- **Background Images**: Upload coloring pages or image outlines to draw over. Automatically enforces image file type filtering (`.png`, `.jpg`, `.webp`, etc.).
+- **Live Multiplayer Cursors**: See where everyone is hovering in real-time, complete with their nicknames.
+- **User-Scoped Undo/Redo**: Server-managed, fully robust undo/redo system. Undoing your action *only* removes your strokes, without interfering with the drawings of other collaborators.
 - **Image Export**: Download your high-res canvas directly to a PNG with a single click.
 - **Hybrid Object Overlay (Text)**: 
     - Instagram-style floating text annotations! Text floats in a DOM layer above the canvas.
     - Drag to move, type to auto-resize, and pull the handle to scale natively without interfering with raster artwork.
 - **Smart Viewport**:
-    - A fixed 1920x1080 canvas that automatically scales to perfectly fit any device screen without pixel distortion or scrollbars.
-- **Live Multiplayer Cursors**: See where everyone is hovering in real-time, complete with their nicknames.
-- **Ephemeral Rooms (Soft Login)**: Frictionless entry—just type a nickname to join a room. All drawings reside purely in memory on the server for ultra-low latency and privacy, automatically clearing when empty.
+    - A fixed 1920x1080 canvas that automatically scales to perfectly fit any device screen. Smart paddings allow the UI toolbars to fit seamlessly on mobile devices.
+- **Ephemeral Rooms & Avatars**: Frictionless entry—just pick an avatar, enter a nickname, and join a room. All drawings reside purely in memory on the server for ultra-low latency and privacy, automatically clearing when empty.
+- **Host Moderation**: 
+    - The first user in a room becomes the Host.
+    - Features include kicking disruptive users and toggling layer locks to prevent drawing.
 
 ## 🛠️ Setup & Installation
 
@@ -68,13 +74,14 @@ npm run dev
 ## 🎮 How to Use
 
 1.  Open the application in your browser.
-2.  **Enter a Nickname** to join. No passwords required!
+2.  **Customize your Avatar and Enter a Nickname** to join.
 3.  **Create or Join a Room** from the lobby.
 4.  **Start Drawing!**
     - Click **Pencil** to choose between Sketch, Marker, Highlighter, or Spray.
-    - Click **Shapes** to drag-and-drop geometric forms (these bake immediately into the canvas).
-    - Click **Text** to drop an Instagram-style text box. Click and drag the text to move it, or drag the bottom-right corner dot to scale it up.
-    - Use the **Eraser** to slice through raster ink (Note: The eraser does not affect floating Text).
+    - Click **Fill** to fill regions with color.
+    - Click **Shapes** to drag-and-drop geometric forms.
+    - Use the **Eraser** to slice through raster ink.
+    - Upload an image to use as a background.
     - Use **Undo/Redo** buttons or `Ctrl+Z` / `Ctrl+Y`.
     - Click **Download** to save your masterpiece as a PNG.
 5.  Share the Room ID with a friend to collaborate in real-time.
@@ -88,16 +95,19 @@ npm run dev
 │   └── socket/handlers.ts      # Socket.io real-time handlers
 └── Frontend/
     └── src/
-        ├── App.tsx             # Main app
+        ├── App.tsx             # Main app (Lobby, Avatars)
         ├── store.ts            # Zustand global state
         ├── engine/             # Custom HTML5 Canvas Engine
         │   ├── RasterBrush.ts  # Brush physics & compositing logic
-        │   └── RasterShapes.ts # Geometry rendering
+        │   ├── RasterShapes.ts # Geometry rendering
+        │   └── floodFill.ts    # Web Worker capable flood fill
         └── components/
             ├── RasterWhiteboard.tsx # 3-Layer Canvas system
             ├── DraggableText.tsx    # Hybrid DOM Object Layer
             ├── LiveCursors.tsx      # Remote Multiplayer Cursors
-            └── Toolbar.tsx          # UI Controls
+            ├── Toolbar.tsx          # UI Controls
+            ├── AvatarEditor.tsx     # Custom Avatar Builder
+            └── ColorPicker.tsx      # Palette Selection
 ```
 
 ## 🔧 Configuration
