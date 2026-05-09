@@ -151,26 +151,12 @@ export function useRasterUndo({ mainCanvasRef }: UseRasterUndoOptions) {
     }
   }, [captureSnapshot, restoreSnapshot]);
 
-  // ── Listen for Zustand trigger changes (from Toolbar buttons + keyboard) ───
-
+  // ── Listen for Zustand trigger changes ──────────────────────────────────────
+  // Disabling local snapshot undo/redo in favor of the multiplayer server-based replay
+  // The useRasterSocket hook now listens to these triggers and handles user-scoped undo via the backend.
   useEffect(() => {
-    // Track previous trigger values to detect changes
-    let prevUndoTrigger = useStore.getState().undoTrigger;
-    let prevRedoTrigger = useStore.getState().redoTrigger;
-
-    const unsub = useStore.subscribe((state) => {
-      if (state.undoTrigger !== prevUndoTrigger) {
-        prevUndoTrigger = state.undoTrigger;
-        performUndo();
-      }
-      if (state.redoTrigger !== prevRedoTrigger) {
-        prevRedoTrigger = state.redoTrigger;
-        performRedo();
-      }
-    });
-
-    return () => unsub();
-  }, [performUndo, performRedo]);
+    // Disabled intentionally to prevent local snapshot undo from erasing other users' drawings.
+  }, []);
 
   // ── Return the pushSnapshot function for the component to call ──────────────
 

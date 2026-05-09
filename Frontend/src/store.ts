@@ -2,6 +2,18 @@ import { create } from 'zustand';
 import { APP_CONFIG, type ToolId } from './constants';
 import type { TextObject } from './engine/types';
 
+export interface AvatarConfig {
+  baseColor: string;
+  eyesId: number;
+  mouthId: number;
+}
+
+export interface RoomUser {
+  id: string;
+  nickname: string;
+  avatar: AvatarConfig;
+}
+
 interface UndoAction {
   type: 'add' | 'remove' | 'modify';
   objectData: Record<string, unknown>;
@@ -22,6 +34,23 @@ interface AppState {
   redoStack: UndoAction[];
   undoTrigger: number; // Increment to trigger undo in canvas
   redoTrigger: number; // Increment to trigger redo in canvas
+  exportTrigger: number; // Increment to trigger canvas export
+
+  // Avatar state
+  avatar: AvatarConfig;
+  setAvatar: (avatar: AvatarConfig) => void;
+
+  // Active users in room
+  roomUsers: RoomUser[];
+  setRoomUsers: (users: RoomUser[]) => void;
+
+  // Host system
+  hostId: string | null;
+  setHostId: (id: string | null) => void;
+
+  // Protected layer
+  isLayerLocked: boolean;
+  setIsLayerLocked: (locked: boolean) => void;
 
   setActiveTool: (tool: ToolId) => void;
   setActiveColor: (color: string) => void;
@@ -34,6 +63,7 @@ interface AppState {
   pushUndo: (action: UndoAction) => void;
   triggerUndo: () => void;
   triggerRedo: () => void;
+  triggerExport: () => void;
   popUndo: () => UndoAction | undefined;
   popRedo: () => UndoAction | undefined;
   pushRedo: (action: UndoAction) => void;
@@ -62,6 +92,19 @@ export const useStore = create<AppState>((set, get) => ({
   redoStack: [],
   undoTrigger: 0,
   redoTrigger: 0,
+  exportTrigger: 0,
+
+  avatar: { baseColor: '#FFD166', eyesId: 0, mouthId: 0 },
+  setAvatar: (avatar) => set({ avatar }),
+
+  roomUsers: [],
+  setRoomUsers: (users) => set({ roomUsers: users }),
+
+  hostId: null,
+  setHostId: (id) => set({ hostId: id }),
+
+  isLayerLocked: false,
+  setIsLayerLocked: (locked) => set({ isLayerLocked: locked }),
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setActiveColor: (color) => set({ activeColor: color }),
@@ -81,6 +124,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Q2: Trigger undo via store (replaces window CustomEvent)
   triggerUndo: () => set((state) => ({ undoTrigger: state.undoTrigger + 1 })),
   triggerRedo: () => set((state) => ({ redoTrigger: state.redoTrigger + 1 })),
+  triggerExport: () => set((state) => ({ exportTrigger: state.exportTrigger + 1 })),
 
   // Pop from undo stack (used by canvas effect)
   popUndo: () => {

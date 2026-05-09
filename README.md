@@ -11,13 +11,15 @@ A modern, ultra-low latency collaborative drawing application built with React, 
 - **Advanced Tools**:
     - **Pencil Variants**: Sketch, Marker, Spray, and **Highlighter** (using `multiply` compositing).
     - **True Pixel Eraser**: A destructive `destination-out` eraser that perfectly cuts through raster pixels in real-time.
-    - **Fluid Shapes**: Rectangle, Circle, Triangle, Diamond, Star, Hexagon, Arrow (baked instantly to raster).
+    - **Fluid Shapes**: Rectangle, Circle, Triangle, Diamond, Star, Hexagon, Arrow (baked instantly to raster). Hold `Shift` for perfect constraint snapping!
+- **Image Export**: Download your high-res canvas directly to a PNG with a single click.
 - **Hybrid Object Overlay (Text)**: 
     - Instagram-style floating text annotations! Text floats in a DOM layer above the canvas.
     - Drag to move, type to auto-resize, and pull the handle to scale natively without interfering with raster artwork.
 - **Smart Viewport**:
     - A fixed 1920x1080 canvas that automatically scales to perfectly fit any device screen without pixel distortion or scrollbars.
-- **Persistent Rooms**: Canvas state (both raster commands and floating objects) is saved to MongoDB and survives server restarts.
+- **Live Multiplayer Cursors**: See where everyone is hovering in real-time, complete with their nicknames.
+- **Ephemeral Rooms (Soft Login)**: Frictionless entry—just type a nickname to join a room. All drawings reside purely in memory on the server for ultra-low latency and privacy, automatically clearing when empty.
 
 ## 🛠️ Setup & Installation
 
@@ -30,21 +32,11 @@ docker compose up --build
 # App available at:
 #   Frontend → http://localhost
 #   Backend API → http://localhost:3000
-#   MongoDB → localhost:27017
-```
-
-To configure Google OAuth and session secrets, create a `.env` file in the project root:
-
-```env
-COOKIE_KEY=your_strong_secret_key
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
 
 To stop:
 ```bash
 docker compose down          # Stop containers
-docker compose down -v       # Stop + delete MongoDB data
 ```
 
 ---
@@ -54,13 +46,11 @@ docker compose down -v       # Stop + delete MongoDB data
 #### Prerequisites
 - Node.js (v18+ recommended)
 - npm
-- MongoDB (local or Atlas)
 
 #### 1. Backend Setup
 
 ```bash
 cd Backend
-cp .env.example .env   # Edit .env with your credentials
 npm install
 npm run dev
 # Server starts on http://localhost:3000
@@ -78,7 +68,7 @@ npm run dev
 ## 🎮 How to Use
 
 1.  Open the application in your browser.
-2.  **Sign Up** with your email and password, or **Sign In** with Google.
+2.  **Enter a Nickname** to join. No passwords required!
 3.  **Create or Join a Room** from the lobby.
 4.  **Start Drawing!**
     - Click **Pencil** to choose between Sketch, Marker, Highlighter, or Spray.
@@ -86,6 +76,7 @@ npm run dev
     - Click **Text** to drop an Instagram-style text box. Click and drag the text to move it, or drag the bottom-right corner dot to scale it up.
     - Use the **Eraser** to slice through raster ink (Note: The eraser does not affect floating Text).
     - Use **Undo/Redo** buttons or `Ctrl+Z` / `Ctrl+Y`.
+    - Click **Download** to save your masterpiece as a PNG.
 5.  Share the Room ID with a friend to collaborate in real-time.
 
 ## 🏗️ Project Structure
@@ -94,11 +85,7 @@ npm run dev
 ├── docker-compose.yml          # Full stack orchestration
 ├── Backend/
 │   ├── index.ts                # Express entry point
-│   ├── routes/auth.ts          # Auth routes (register, login)
-│   ├── socket/handlers.ts      # Socket.io real-time handlers
-│   └── models/
-│       ├── User.ts             # User model
-│       └── Room.ts             # Room persistence model (stores commands + texts)
+│   └── socket/handlers.ts      # Socket.io real-time handlers
 └── Frontend/
     └── src/
         ├── App.tsx             # Main app
@@ -109,6 +96,7 @@ npm run dev
         └── components/
             ├── RasterWhiteboard.tsx # 3-Layer Canvas system
             ├── DraggableText.tsx    # Hybrid DOM Object Layer
+            ├── LiveCursors.tsx      # Remote Multiplayer Cursors
             └── Toolbar.tsx          # UI Controls
 ```
 
@@ -116,10 +104,7 @@ npm run dev
 
 ### Environment Variables
 
-**Backend** (see `Backend/.env.example`):
-- `MONGO_URI` — MongoDB connection string
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth credentials
-- `COOKIE_KEY` — Session secret
+**Backend**:
 - `PORT` — Server port (default: 3000)
 - `CLIENT_URL` — Frontend URL for CORS (default: http://localhost:5173)
 

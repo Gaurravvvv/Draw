@@ -14,7 +14,9 @@ import { io, Socket } from 'socket.io-client';
 import { useStore } from '../store';
 import { RasterBrush } from '../engine/RasterBrush';
 import { drawShape, type ShapeKind } from '../engine/RasterShapes';
-import type { StrokeCommand, StrokeLiveEvent, PointWithPressure, BrushOptions } from '../engine/types';
+import { sprayParticles } from '../components/RasterWhiteboard';
+import type { StrokeCommand, StrokeLiveEvent, PointWithPressure, BrushOptions, DrawEventFill, DrawEventImage } from '../engine/types';
+import { executeFloodFill } from '../engine/floodFill';
 import getStroke from 'perfect-freehand';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -39,6 +41,19 @@ function getSvgPathFromStroke(points: number[][]): string {
 }
 
 // ─── Live stroke tracking (remote users' in-progress strokes) ─────────────────
+
+/** Replay an image command by drawing a dataURL onto the canvas */
+function replayImageCommand(ctx: CanvasRenderingContext2D, cmd: { dataUrl: string; x: number; y: number; w: number; h: number }): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, cmd.x, cmd.y, cmd.w, cmd.h);
+      resolve();
+    };
+    img.onerror = () => resolve(); // prevent hanging
+    img.src = cmd.dataUrl;
+  });
+}
 
 interface LiveStroke {
   points: PointWithPressure[];
@@ -67,11 +82,16 @@ export function useRasterSocket({
   draftCanvasRef,
   logicalW,
   logicalH,
-}: UseRasterSocketOptions) {
+  nickname,
+  isCreating,
+}: UseRasterSocketOptions & { nickname?: string; isCreating?: boolean }) {
   const socketRef = useRef<Socket | null>(null);
-  const { setIsConnected, showToast, setTexts, addText, updateText, removeText } = useStore();
+  const { setIsConnected, showToast, setTexts, addText, updateText, removeText, setRoomUsers, setHostId, setIsLayerLocked, avatar } = useStore();
   const liveRafId = useRef<number | null>(null);
   const liveDirty = useRef(false);
+  const lastMoveEmitTime = useRef(0);
+  const commandsLogRef = useRef<any[]>([]);
+  const baseLayerRef = useRef<any[]>([]);
 
   // ── Replay a single stroke command onto mainCanvas ──────────────────────────
 
@@ -111,6 +131,18 @@ export function useRasterSocket({
 
     if (points.length === 0) return;
 
+    if (cmd.tool === 'pencil-spray') {
+      const radius = cmd.size * 3;
+      const density = 15;
+      for (let i = 0; i < points.length; i++) {
+        const sx = points[i][0];
+        const sy = points[i][1];
+        const seed = Math.floor(sx * 1000) + Math.floor(sy);
+        sprayParticles(ctx, sx, sy, radius, density, cmd.color, seed);
+      }
+      return;
+    }
+
     const opts: BrushOptions = {
       color: cmd.color,
       size: cmd.size,
@@ -125,6 +157,19 @@ export function useRasterSocket({
 
     RasterBrush.replayStroke(ctx, points, opts);
   }, [mainCanvasRef]);
+
+  // ── Sequential Replay Engine (fixes image -> flood-fill async issues) ───────
+  const replayAllCommandsSequential = useCallback(async (ctx: CanvasRenderingContext2D, commands: any[]) => {
+    for (const cmd of commands) {
+      if (cmd.type === 'stroke' || !cmd.type) {
+        replayCommand(cmd.stroke || cmd);
+      } else if (cmd.type === 'fill') {
+        executeFloodFill(ctx, cmd.point.x, cmd.point.y, cmd.color, cmd.tolerance);
+      } else if (cmd.type === 'image') {
+        await replayImageCommand(ctx, cmd);
+      }
+    }
+  }, [replayCommand]);
 
   // ── Render live remote strokes onto draftCanvas ─────────────────────────────
 
@@ -204,7 +249,7 @@ export function useRasterSocket({
 
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('join-room', roomId);
+      socket.emit('join-room', { roomId, nickname: nickname || 'Anonymous', avatar, isCreating });
     });
 
     socket.on('disconnect', () => {
@@ -215,11 +260,36 @@ export function useRasterSocket({
     socket.on('reconnect' as any, () => {
       setIsConnected(true);
       showToast('Reconnected!', 'success');
-      socket.emit('join-room', roomId);
+      socket.emit('join-room', { roomId, nickname: nickname || 'Anonymous', avatar, isCreating });
     });
 
     socket.on('error', (err: { message: string }) => {
       showToast(err.message, 'error');
+    });
+
+    socket.on('room-not-found', (data: { message: string }) => {
+      showToast(data.message, 'error');
+      socket.disconnect();
+      window.dispatchEvent(new CustomEvent('kicked-from-room'));
+    });
+
+    // --- Receive room users list ---
+    socket.on('room-users', (data: any) => {
+      // Support new format { users, hostId } and old format (array)
+      if (Array.isArray(data)) {
+        setRoomUsers(data);
+      } else {
+        setRoomUsers(data.users || []);
+        setHostId(data.hostId || null);
+      }
+    });
+
+    // --- Handle kicked event ---
+    socket.on('kicked', (data: { message: string }) => {
+      showToast(data.message, 'error');
+      // The component will detect isConnected=false and redirect
+      socket.disconnect();
+      window.dispatchEvent(new CustomEvent('kicked-from-room'));
     });
 
     // --- Receive initial room state (command log) ---
@@ -227,6 +297,11 @@ export function useRasterSocket({
       // Backward compatibility if state is just commands array
       const commands = Array.isArray(state) ? state : (state?.commands || []);
       const texts = state?.texts || [];
+      const baseCmds = state?.baseLayerCommands || [];
+
+      commandsLogRef.current = [...commands];
+      baseLayerRef.current = [...baseCmds];
+      if (baseCmds.length > 0) setIsLayerLocked(true);
 
       const canvas = mainCanvasRef.current;
       if (!canvas) return;
@@ -235,27 +310,86 @@ export function useRasterSocket({
       // Clear before replaying
       ctx.clearRect(0, 0, logicalW, logicalH);
 
-      // Replay all commands
-      commands.forEach((cmd: StrokeCommand) => {
-        replayCommand(cmd);
-      });
-
-      // Set texts
-      setTexts(texts);
+      // Replay base layer first (protected), then current commands sequentially
+      (async () => {
+        await replayAllCommandsSequential(ctx, baseCmds);
+        await replayAllCommandsSequential(ctx, commands);
+        // Set texts after replay
+        setTexts(texts);
+      })();
     });
 
     // --- Receive draw events from remote users ---
-    socket.on('draw-event', (data: { type: string; stroke?: StrokeCommand }) => {
-      if (data.type === 'stroke' && data.stroke) {
-        replayCommand(data.stroke);
+    socket.on('draw-event', (data: any) => {
+      if (data.type === 'stroke' || (data.type === 'stroke' && data.stroke)) {
+        commandsLogRef.current.push(data);
+        replayCommand(data.stroke || data);
+      } else if (data.type === 'fill') {
+        commandsLogRef.current.push(data);
+        const canvas = mainCanvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d')!;
+          executeFloodFill(ctx, data.point.x, data.point.y, data.color, data.tolerance);
+        }
+      } else if (data.type === 'image') {
+        commandsLogRef.current.push(data);
+        const canvas = mainCanvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d')!;
+          replayImageCommand(ctx, data);
+        }
       } else if (data.type === 'clear') {
+        commandsLogRef.current = [];
         const canvas = mainCanvasRef.current;
         if (canvas) {
           const ctx = canvas.getContext('2d')!;
           ctx.clearRect(0, 0, logicalW, logicalH);
+          // Re-draw base layer even on clear
+          replayAllCommandsSequential(ctx, baseLayerRef.current);
         }
         setTexts([]);
       }
+    });
+
+    // --- Undo/Redo replay (user-scoped) ---
+    socket.on('undo-replay', (data: { commands: any[]; baseLayerCommands: any[] }) => {
+      commandsLogRef.current = [...data.commands];
+      baseLayerRef.current = data.baseLayerCommands || baseLayerRef.current;
+
+      const canvas = mainCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d')!;
+      ctx.clearRect(0, 0, logicalW, logicalH);
+
+      // Replay sequentially so images load before flood fills
+      (async () => {
+        await replayAllCommandsSequential(ctx, baseLayerRef.current);
+        await replayAllCommandsSequential(ctx, data.commands);
+      })();
+    });
+
+    // --- Layer locked event ---
+    socket.on('layer-locked', (data: { baseLayerCommands: any[] }) => {
+      baseLayerRef.current = data.baseLayerCommands;
+      commandsLogRef.current = [];
+      setIsLayerLocked(true);
+      showToast('Layer locked! Current drawing is now protected.', 'info');
+    });
+
+    socket.on('layer-unlocked', (data: { commands: any[] }) => {
+      baseLayerRef.current = [];
+      commandsLogRef.current = data.commands;
+      setIsLayerLocked(false);
+      showToast('Layer unlocked.', 'info');
+      
+      const canvas = mainCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d')!;
+      ctx.clearRect(0, 0, logicalW, logicalH);
+      
+      (async () => {
+        await replayAllCommandsSequential(ctx, data.commands);
+      })();
     });
 
     // --- Receive text events ---
@@ -307,6 +441,12 @@ export function useRasterSocket({
       }
     });
 
+    // --- Cursor streaming ---
+    socket.on('cursor-move', (data: any) => {
+      // Dispatch custom event to be picked up by LiveCursors component
+      window.dispatchEvent(new CustomEvent('remote-cursor-move', { detail: data }));
+    });
+
     return () => {
       liveStrokes.clear();
       stopLiveRenderLoop();
@@ -314,13 +454,46 @@ export function useRasterSocket({
     };
   }, [roomId, mainCanvasRef, draftCanvasRef, logicalW, logicalH, setIsConnected, showToast, replayCommand, startLiveRenderLoop, stopLiveRenderLoop]);
 
+  // ── Undo/Redo Sync ────────────────────────────────────────────────────────
+  useEffect(() => {
+    let prevUndoTrigger = useStore.getState().undoTrigger;
+    let prevRedoTrigger = useStore.getState().redoTrigger;
+    
+    const unsub = useStore.subscribe((state) => {
+      if (state.undoTrigger !== prevUndoTrigger) {
+        prevUndoTrigger = state.undoTrigger;
+        // Emit undo (server will io.in().emit back to us so we process it in draw-event)
+        socketRef.current?.emit('draw-event', { roomId, data: { type: 'undo' } });
+      }
+      
+      if (state.redoTrigger !== prevRedoTrigger) {
+        prevRedoTrigger = state.redoTrigger;
+        // Emit redo
+        socketRef.current?.emit('draw-event', { roomId, data: { type: 'redo' } });
+      }
+    });
+    
+    return () => unsub();
+  }, [roomId]);
+
   // ── Emit helpers (exposed to the component) ─────────────────────────────────
 
   /** Emit a completed stroke command to the room */
   const emitDrawEvent = useCallback((stroke: StrokeCommand) => {
+    const data = { type: 'stroke', stroke };
+    commandsLogRef.current.push(data); // Push locally
     socketRef.current?.emit('draw-event', {
       roomId,
-      data: { type: 'stroke', stroke },
+      data,
+    });
+  }, [roomId]);
+
+  /** Emit a fill command to the room */
+  const emitFillEvent = useCallback((event: DrawEventFill) => {
+    commandsLogRef.current.push(event); // Push locally
+    socketRef.current?.emit('draw-event', {
+      roomId,
+      data: event,
     });
   }, [roomId]);
 
@@ -331,7 +504,11 @@ export function useRasterSocket({
 
   /** Emit a live stroke move point */
   const emitStrokeLiveMove = useCallback((event: StrokeLiveEvent) => {
-    socketRef.current?.emit('stroke-live', { roomId, data: event });
+    const now = Date.now();
+    if (now - lastMoveEmitTime.current > 32) { // ~30fps
+      socketRef.current?.emit('stroke-live', { roomId, data: event });
+      lastMoveEmitTime.current = now;
+    }
   }, [roomId]);
 
   /** Emit a live stroke end */
@@ -344,12 +521,29 @@ export function useRasterSocket({
     socketRef.current?.emit('text-event', { roomId, data: event });
   }, [roomId]);
 
+  /** Emit cursor move */
+  const emitCursorMove = useCallback((data: any) => {
+    socketRef.current?.emit('cursor-move', { roomId, data });
+  }, [roomId]);
+
+  /** Emit an image (coloring book outline) to the room */
+  const emitImageEvent = useCallback((event: DrawEventImage) => {
+    commandsLogRef.current.push(event);
+    socketRef.current?.emit('draw-event', {
+      roomId,
+      data: event,
+    });
+  }, [roomId]);
+
   return {
     socketRef,
     emitDrawEvent,
+    emitFillEvent,
+    emitImageEvent,
     emitStrokeLiveStart,
     emitStrokeLiveMove,
     emitStrokeLiveEnd,
     emitTextEvent,
+    emitCursorMove,
   };
 }

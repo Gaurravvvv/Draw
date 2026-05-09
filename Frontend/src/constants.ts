@@ -15,6 +15,8 @@ import {
   SprayCan,
   Zap,
   Shapes,
+  PaintBucket,
+  ImagePlus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -83,6 +85,18 @@ export const APP_CONFIG = {
         type: "freehand", 
         width: 20
       },
+      {
+        id: "fill",
+        icon: PaintBucket,
+        label: "Fill",
+        type: "action"
+      },
+      {
+        id: "image-upload",
+        icon: ImagePlus,
+        label: "Coloring Page",
+        type: "action"
+      },
     ] as ToolConfig[],
     PRESET_COLORS: [
       "#000000", // Black
@@ -120,4 +134,6 @@ export type ToolId =
   | "shape-hexagon" 
   | "shape-arrow"
   | "text" 
-  | "eraser";
+  | "eraser"
+  | "fill"
+  | "image-upload";

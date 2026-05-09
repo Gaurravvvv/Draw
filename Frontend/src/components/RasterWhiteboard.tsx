@@ -19,6 +19,8 @@ import { useRasterUndo } from '../hooks/useRasterUndo';
 import { useRasterSocket } from '../hooks/useRasterSocket';
 import { v4 as uuidv4 } from 'uuid';
 import { DraggableText } from './DraggableText';
+import { LiveCursors } from './LiveCursors';
+import { executeFloodFill } from '../engine/floodFill';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,7 +42,7 @@ function initCanvas(canvas: HTMLCanvasElement, w: number, h: number): CanvasRend
 
 // ─── Spray brush (custom raster particle scatter) ─────────────────────────────
 
-function sprayParticles(
+export function sprayParticles(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -62,9 +64,11 @@ function sprayParticles(
 
 interface RasterWhiteboardProps {
   roomId: string;
+  nickname: string;
+  isCreating: boolean;
 }
 
-export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
+export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhiteboardProps) => {
   const mainRef = useRef<HTMLCanvasElement>(null);
   const draftRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLCanvasElement>(null);
@@ -84,7 +88,16 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
   const sprayPos = useRef<Point2D>({ x: 0, y: 0 });
 
   // Zustand store
-  const { activeTool, activeColor, brushSize, setActiveTool, texts, addText, updateText, removeText } = useStore();
+  const activeTool = useStore((state) => state.activeTool);
+  const activeColor = useStore((state) => state.activeColor);
+  const brushSize = useStore((state) => state.brushSize);
+  const setActiveTool = useStore((state) => state.setActiveTool);
+  const texts = useStore((state) => state.texts);
+  const addText = useStore((state) => state.addText);
+  const updateText = useStore((state) => state.updateText);
+  const removeText = useStore((state) => state.removeText);
+  const exportTrigger = useStore((state) => state.exportTrigger);
+  const avatar = useStore((state) => state.avatar);
 
   // Refs for latest values (avoid stale closures in event handlers)
   const activeToolRef = useRef(activeTool);
@@ -108,36 +121,53 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
 
   const {
     emitDrawEvent,
+    emitFillEvent,
+    emitImageEvent,
     emitStrokeLiveStart,
     emitStrokeLiveMove,
     emitStrokeLiveEnd,
     emitTextEvent,
+    emitCursorMove,
+    socketRef,
   } = useRasterSocket({
     roomId,
     mainCanvasRef: mainRef,
     draftCanvasRef: draftRef,
     logicalW: CANVAS_W,
     logicalH: CANVAS_H,
+    nickname,
+    isCreating,
   });
 
   // Refs for emit helpers (to avoid stale closures in brush callbacks)
   const emitDrawEventRef = useRef(emitDrawEvent);
+  const emitFillEventRef = useRef(emitFillEvent);
+  const emitImageEventRef = useRef(emitImageEvent);
   const emitStrokeLiveStartRef = useRef(emitStrokeLiveStart);
   const emitStrokeLiveMoveRef = useRef(emitStrokeLiveMove);
   const emitStrokeLiveEndRef = useRef(emitStrokeLiveEnd);
   const emitTextEventRef = useRef(emitTextEvent);
+  const emitCursorMoveRef = useRef(emitCursorMove);
   useEffect(() => { emitDrawEventRef.current = emitDrawEvent; }, [emitDrawEvent]);
+  useEffect(() => { emitFillEventRef.current = emitFillEvent; }, [emitFillEvent]);
+  useEffect(() => { emitImageEventRef.current = emitImageEvent; }, [emitImageEvent]);
   useEffect(() => { emitStrokeLiveStartRef.current = emitStrokeLiveStart; }, [emitStrokeLiveStart]);
   useEffect(() => { emitStrokeLiveMoveRef.current = emitStrokeLiveMove; }, [emitStrokeLiveMove]);
   useEffect(() => { emitStrokeLiveEndRef.current = emitStrokeLiveEnd; }, [emitStrokeLiveEnd]);
   useEffect(() => { emitTextEventRef.current = emitTextEvent; }, [emitTextEvent]);
+  useEffect(() => { emitCursorMoveRef.current = emitCursorMove; }, [emitCursorMove]);
 
   // ── Viewport scaling ────────────────────────────────────────────────────────
 
   useEffect(() => {
     const updateScale = () => {
-      const sx = window.innerWidth / CANVAS_W;
-      const sy = window.innerHeight / CANVAS_H;
+      // Add padding to account for mobile/split-window toolbars
+      const paddingX = window.innerWidth < 768 ? 16 : 100;
+      const paddingY = window.innerWidth < 768 ? 100 : 32; // Reserve space for bottom toolbar on mobile
+      
+      const sx = (window.innerWidth - paddingX) / CANVAS_W;
+      const sy = (window.innerHeight - paddingY) / CANVAS_H;
+      
       setScale(Math.min(sx, sy, 1));
     };
     updateScale();
@@ -279,6 +309,9 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.restore();
+
+      // Emit cursor position to other users (throttled)
+      emitCursorMoveRef.current({ x, y, nickname });
     };
 
     const handleLeave = () => {
@@ -385,6 +418,9 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
       brush.deactivate();
       draftCanvas.style.cursor = 'crosshair';
 
+      // Collect spray points for network sync
+      const sprayPoints: Point2D[] = [];
+
       // Custom spray implementation using particle scatter
       sprayDownHandler = (e: PointerEvent) => {
         if (e.button !== 0) return;
@@ -392,6 +428,7 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
         // Capture undo snapshot BEFORE spray starts painting on mainCanvas
         pushSnapshotRef.current();
         isSprayActive.current = true;
+        sprayPoints.length = 0;
         draftCanvas.setPointerCapture(e.pointerId);
         const pt = getCanvasPoint(e);
         sprayPos.current = pt;
@@ -399,7 +436,10 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
         // Start spray rAF loop
         const sprayLoop = () => {
           if (!isSprayActive.current) return;
-          sprayParticles(mainCtx, sprayPos.current.x, sprayPos.current.y, brushSizeRef.current * 3, 15, activeColorRef.current);
+          const sx = sprayPos.current.x;
+          const sy = sprayPos.current.y;
+          sprayParticles(mainCtx, sx, sy, brushSizeRef.current * 3, 15, activeColorRef.current);
+          sprayPoints.push({ x: sx, y: sy });
           sprayRafId.current = requestAnimationFrame(sprayLoop);
         };
         sprayRafId.current = requestAnimationFrame(sprayLoop);
@@ -418,7 +458,29 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
           cancelAnimationFrame(sprayRafId.current);
           sprayRafId.current = null;
         }
-        // TODO Phase 3: emit spray stroke
+
+        // Emit spray stroke to network
+        if (sprayPoints.length > 0) {
+          const flatPoints: number[] = [];
+          sprayPoints.forEach((pt) => {
+            flatPoints.push(
+              Math.round(pt.x * 10) / 10,
+              Math.round(pt.y * 10) / 10,
+              1, // pressure placeholder
+            );
+          });
+
+          const command: StrokeCommand = {
+            type: 'stroke',
+            id: uuidv4(),
+            tool: 'pencil-spray',
+            color: activeColorRef.current,
+            size: brushSizeRef.current,
+            opacity: 1,
+            points: flatPoints,
+          };
+          emitDrawEventRef.current(command);
+        }
       };
 
       draftCanvas.addEventListener('pointerdown', sprayDownHandler);
@@ -609,10 +671,111 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
+  // ── Export to PNG ──────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (exportTrigger === 0) return;
+    const canvas = mainRef.current;
+    if (!canvas) return;
+
+    const link = document.createElement('a');
+    link.download = `drawwww-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }, [exportTrigger]);
+
+  // ── Image outline upload handler ──────────────────────────────────────────────
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { dataUrl } = (e as CustomEvent).detail;
+      const canvas = mainRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d')!;
+
+      pushSnapshotRef.current();
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, CANVAS_W, CANVAS_H);
+        // Emit image to room
+        emitImageEventRef.current({
+          type: 'image',
+          dataUrl,
+          x: 0,
+          y: 0,
+          w: CANVAS_W,
+          h: CANVAS_H,
+        });
+      };
+      img.src = dataUrl;
+    };
+    window.addEventListener('image-outline-ready', handler);
+    return () => window.removeEventListener('image-outline-ready', handler);
+  }, []);
+
+  // ── Kick user handler ─────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { targetId } = (e as CustomEvent).detail;
+      socketRef.current?.emit('kick-user', { roomId, targetId });
+    };
+    window.addEventListener('kick-user', handler);
+    return () => window.removeEventListener('kick-user', handler);
+  }, [roomId]);
+
+  // ── Layer lock toggle handler ─────────────────────────────────────────────────
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { lock } = (e as CustomEvent).detail;
+      if (lock) {
+        socketRef.current?.emit('lock-layer', { roomId });
+      } else {
+        socketRef.current?.emit('unlock-layer', { roomId });
+      }
+    };
+    window.addEventListener('toggle-layer-lock', handler);
+    return () => window.removeEventListener('toggle-layer-lock', handler);
+  }, [roomId]);
+
+  // ── Flood fill tool handler ───────────────────────────────────────────────────
+
+  useEffect(() => {
+    const draftCanvas = draftRef.current;
+    const mainCanvas = mainRef.current;
+    if (!draftCanvas || !mainCanvas) return;
+    if (activeTool !== 'fill') return;
+
+    rasterBrushRef.current?.deactivate();
+    draftCanvas.style.cursor = 'crosshair';
+
+    const handleFillClick = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const pt = getCanvasPoint(e);
+      const ctx = mainCanvas.getContext('2d')!;
+
+      pushSnapshotRef.current();
+      executeFloodFill(ctx, Math.round(pt.x), Math.round(pt.y), activeColorRef.current, 32);
+
+      emitFillEventRef.current({
+        type: 'fill',
+        point: { x: Math.round(pt.x), y: Math.round(pt.y) },
+        color: activeColorRef.current,
+        tolerance: 32,
+      });
+    };
+
+    draftCanvas.addEventListener('pointerdown', handleFillClick);
+    return () => draftCanvas.removeEventListener('pointerdown', handleFillClick);
+  }, [activeTool, getCanvasPoint]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center overflow-hidden bg-neutral-200">
+    <div className="w-screen h-screen h-[100dvh] flex items-center justify-center overflow-hidden bg-neutral-200">
       {/* Outer Viewport Wrapper — determines exact scaled dimensions to prevent body overflow */}
       <div
         style={{
@@ -674,6 +837,8 @@ export const RasterWhiteboard = ({ roomId }: RasterWhiteboardProps) => {
             </div>
           ))}
         </div>
+        {/* Live Multiplayer Cursors Overlay */}
+        <LiveCursors scale={scale} />
         </div>
       </div>
     </div>

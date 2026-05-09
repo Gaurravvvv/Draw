@@ -103,6 +103,13 @@ export interface DrawEventStroke {
   stroke: StrokeCommand;
 }
 
+export interface DrawEventFill {
+  type: 'fill';
+  point: { x: number; y: number };
+  color: string;
+  tolerance: number;
+}
+
 export interface DrawEventUndo {
   type: 'undo';
 }
@@ -115,7 +122,16 @@ export interface DrawEventClear {
   type: 'clear';
 }
 
-export type DrawEvent = DrawEventStroke | DrawEventUndo | DrawEventRedo | DrawEventClear;
+export interface DrawEventImage {
+  type: 'image';
+  dataUrl: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export type DrawEvent = DrawEventStroke | DrawEventUndo | DrawEventRedo | DrawEventClear | DrawEventFill | DrawEventImage;
 
 // ─── Live Stroke Events (transient socket payloads) ───────────────────────────
 
