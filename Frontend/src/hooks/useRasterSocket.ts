@@ -137,8 +137,7 @@ export function useRasterSocket({
       for (let i = 0; i < points.length; i++) {
         const sx = points[i][0];
         const sy = points[i][1];
-        const seed = Math.floor(sx * 1000) + Math.floor(sy);
-        sprayParticles(ctx, sx, sy, radius, density, cmd.color, seed);
+        sprayParticles(ctx, sx, sy, radius, density, cmd.color);
       }
       return;
     }

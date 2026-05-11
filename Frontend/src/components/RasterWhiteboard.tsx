@@ -97,7 +97,6 @@ export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhitebo
   const updateText = useStore((state) => state.updateText);
   const removeText = useStore((state) => state.removeText);
   const exportTrigger = useStore((state) => state.exportTrigger);
-  const avatar = useStore((state) => state.avatar);
   const isLayerLocked = useStore((state) => state.isLayerLocked);
   const hostId = useStore((state) => state.hostId);
 

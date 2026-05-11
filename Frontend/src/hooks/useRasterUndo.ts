@@ -13,7 +13,7 @@
  */
 
 import { useRef, useEffect, useCallback } from 'react';
-import { useStore } from '../store';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,25 +61,6 @@ export function useRasterUndo({ mainCanvasRef }: UseRasterUndoOptions) {
     });
   }, [mainCanvasRef]);
 
-  /**
-   * Restore a snapshot Blob onto the main canvas.
-   * Uses createImageBitmap for GPU-accelerated decoding.
-   */
-  const restoreSnapshot = useCallback(async (blob: Blob) => {
-    const canvas = mainCanvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d')!;
-    const bitmap = await createImageBitmap(blob);
-
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset any DPR transform
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0);
-    ctx.restore();
-
-    bitmap.close(); // Free GPU memory
-  }, [mainCanvasRef]);
 
   // ── Pre-Bake Snapshot (called BEFORE each stroke is baked) ──────────────────
 
@@ -106,50 +87,6 @@ export function useRasterUndo({ mainCanvasRef }: UseRasterUndoOptions) {
       console.warn('[useRasterUndo] snapshot capture failed:', err);
     }
   }, [captureSnapshot]);
-
-  // ── Undo ────────────────────────────────────────────────────────────────────
-
-  const performUndo = useCallback(async () => {
-    if (undoStackRef.current.length === 0) return;
-
-    isRestoringRef.current = true;
-
-    try {
-      // Capture current state for redo
-      const currentBlob = await captureSnapshot();
-      redoStackRef.current.push({ blob: currentBlob });
-
-      // Pop and restore previous state
-      const entry = undoStackRef.current.pop()!;
-      await restoreSnapshot(entry.blob);
-    } catch (err) {
-      console.warn('[useRasterUndo] undo failed:', err);
-    } finally {
-      isRestoringRef.current = false;
-    }
-  }, [captureSnapshot, restoreSnapshot]);
-
-  // ── Redo ────────────────────────────────────────────────────────────────────
-
-  const performRedo = useCallback(async () => {
-    if (redoStackRef.current.length === 0) return;
-
-    isRestoringRef.current = true;
-
-    try {
-      // Capture current state for undo
-      const currentBlob = await captureSnapshot();
-      undoStackRef.current.push({ blob: currentBlob });
-
-      // Pop and restore redo state
-      const entry = redoStackRef.current.pop()!;
-      await restoreSnapshot(entry.blob);
-    } catch (err) {
-      console.warn('[useRasterUndo] redo failed:', err);
-    } finally {
-      isRestoringRef.current = false;
-    }
-  }, [captureSnapshot, restoreSnapshot]);
 
   // ── Listen for Zustand trigger changes ──────────────────────────────────────
   // Disabling local snapshot undo/redo in favor of the multiplayer server-based replay
