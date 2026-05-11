@@ -312,7 +312,13 @@ export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhitebo
       ctx.restore();
 
       // Emit cursor position to other users (throttled)
-      emitCursorMoveRef.current({ x, y, nickname });
+      emitCursorMoveRef.current({
+        id: useStore.getState().socketId,
+        x,
+        y,
+        nickname,
+        avatar: useStore.getState().avatar
+      });
     };
 
     const handleLeave = () => {
