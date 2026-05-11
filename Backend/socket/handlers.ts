@@ -186,6 +186,12 @@ export function registerSocketHandlers(io: Server) {
 
       const room = getRoom(roomId);
 
+      // Block drawing if the room is locked and the user is not the host
+      const isLocked = room.baseLayerCommands.length > 0;
+      if (isLocked && room.hostId !== socket.id) {
+        return;
+      }
+
       if (data.type === 'stroke' || data.type === 'fill' || data.type === 'image') {
         // Tag with author for user-scoped undo
         (data as any).authorId = socket.id;
@@ -316,6 +322,10 @@ export function registerSocketHandlers(io: Server) {
       if (!isValidRoomId(roomId) || !socket.rooms.has(roomId)) return;
 
       const room = getRoom(roomId);
+      
+      // Block text changes if the room is locked and user is not host
+      if (room.baseLayerCommands.length > 0 && room.hostId !== socket.id) return;
+
       if (data.type === 'add') {
         room.texts.push(data.text);
       } else if (data.type === 'update') {
@@ -331,12 +341,15 @@ export function registerSocketHandlers(io: Server) {
     // Live stroke streaming — broadcast only, no storage (transient)
     // This enables real-time drawing visibility while strokes are in progress
     socket.on('stroke-live', ({ roomId, data }: { roomId: unknown; data: unknown }) => {
-      if (!isValidRoomId(roomId)) return;
-      if (!socket.rooms.has(roomId)) return;
-      socket.to(roomId).emit('stroke-live', data);
+      if (!isValidRoomId(roomId) || !socket.rooms.has(roomId)) return;
+      
+      const room = getRoom(roomId);
+      if (room.baseLayerCommands.length > 0 && room.hostId !== socket.id) return;
+      
+      socket.to(roomId as string).emit('stroke-live', data);
     });
 
-    // Live cursor streaming
+    // ── Cursor streaming ────────────────────────────────────────────────────────
     socket.on('cursor-move', ({ roomId, data }: { roomId: unknown; data: unknown }) => {
       if (!isValidRoomId(roomId) || !socket.rooms.has(roomId)) return;
       socket.to(roomId).emit('cursor-move', data);

@@ -47,6 +47,10 @@ interface AppState {
   // Host system
   hostId: string | null;
   setHostId: (id: string | null) => void;
+  
+  // Current user's socket ID
+  socketId: string | null;
+  setSocketId: (id: string | null) => void;
 
   // Protected layer
   isLayerLocked: boolean;
@@ -102,6 +106,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   hostId: null,
   setHostId: (id) => set({ hostId: id }),
+  
+  socketId: null,
+  setSocketId: (id) => set({ socketId: id }),
 
   isLayerLocked: false,
   setIsLayerLocked: (locked) => set({ isLayerLocked: locked }),

@@ -18,7 +18,12 @@ export const Toolbar = () => {
     triggerUndo,
     triggerRedo,
     triggerExport,
+    isLayerLocked,
+    hostId,
+    socketId,
   } = useStore();
+
+  const isLockedForMe = isLayerLocked && hostId !== socketId;
 
   const [activePopover, setActivePopover] = useState<string | null>(null);
   const [muted, setMuted] = useState(getMuted());
@@ -87,7 +92,9 @@ export const Toolbar = () => {
   return (
     <div
       ref={toolbarRef}
-      className="fixed bottom-4 left-4 right-4 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:left-6 md:right-auto flex flex-row md:flex-col gap-2 md:gap-3 bg-white p-2 md:p-3 rounded-2xl shadow-lg border border-paper-border z-50 md:w-16 items-center flex-wrap md:flex-nowrap justify-center"
+      className={`fixed bottom-4 left-4 right-4 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:left-6 md:right-auto flex flex-row md:flex-col gap-2 md:gap-3 bg-white p-2 md:p-3 rounded-2xl shadow-lg border border-paper-border z-50 md:w-16 items-center flex-wrap md:flex-nowrap justify-center transition-all ${
+        isLockedForMe ? 'pointer-events-none opacity-50' : 'opacity-100'
+      }`}
     >
       {/* Tool Icons */}
       <div className="flex flex-row md:flex-col gap-1 md:gap-2 relative flex-shrink-0 flex-wrap justify-center">
@@ -190,7 +197,7 @@ export const Toolbar = () => {
           title="Pick Color"
         />
         {showColorPicker && (
-          <div className="absolute bottom-full left-0 mb-2 md:bottom-auto md:left-full md:top-0 md:mb-0 md:ml-4 z-50">
+          <div className="absolute bottom-full left-0 mb-2 md:top-auto md:bottom-0 md:left-full md:mb-0 md:ml-4 z-50">
             <ColorPicker
               activeColor={activeColor}
               onColorSelect={setActiveColor}

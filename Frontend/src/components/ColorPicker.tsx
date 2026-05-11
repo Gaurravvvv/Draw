@@ -85,7 +85,7 @@ export const ColorPicker = ({ activeColor, onColorSelect, onClose }: ColorPicker
   );
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-3 min-w-[200px] animate-in fade-in">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-3 min-w-[200px] max-h-[70vh] overflow-y-auto animate-in fade-in custom-scrollbar">
       {selectedFamily === null ? (
         /* ── Category View ── */
         <div>

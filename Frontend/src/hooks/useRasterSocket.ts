@@ -86,7 +86,7 @@ export function useRasterSocket({
   isCreating,
 }: UseRasterSocketOptions & { nickname?: string; isCreating?: boolean }) {
   const socketRef = useRef<Socket | null>(null);
-  const { setIsConnected, showToast, setTexts, addText, updateText, removeText, setRoomUsers, setHostId, setIsLayerLocked, avatar } = useStore();
+  const { setIsConnected, showToast, setTexts, addText, updateText, removeText, setRoomUsers, setHostId, setIsLayerLocked, avatar, setSocketId } = useStore();
   const liveRafId = useRef<number | null>(null);
   const liveDirty = useRef(false);
   const lastMoveEmitTime = useRef(0);
@@ -249,11 +249,13 @@ export function useRasterSocket({
 
     socket.on('connect', () => {
       setIsConnected(true);
+      setSocketId(socket.id || null);
       socket.emit('join-room', { roomId, nickname: nickname || 'Anonymous', avatar, isCreating });
     });
 
     socket.on('disconnect', () => {
       setIsConnected(false);
+      setSocketId(null);
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

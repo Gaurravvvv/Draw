@@ -98,6 +98,8 @@ export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhitebo
   const removeText = useStore((state) => state.removeText);
   const exportTrigger = useStore((state) => state.exportTrigger);
   const avatar = useStore((state) => state.avatar);
+  const isLayerLocked = useStore((state) => state.isLayerLocked);
+  const hostId = useStore((state) => state.hostId);
 
   // Refs for latest values (avoid stale closures in event handlers)
   const activeToolRef = useRef(activeTool);
@@ -774,6 +776,9 @@ export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhitebo
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  const socketId = useStore((state) => state.socketId);
+  const isLockedForMe = isLayerLocked && hostId !== socketId;
+
   return (
     <div className="w-screen h-screen h-[100dvh] flex items-center justify-center overflow-hidden bg-neutral-200">
       {/* Outer Viewport Wrapper — determines exact scaled dimensions to prevent body overflow */}
@@ -804,7 +809,7 @@ export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhitebo
           />
         <canvas
           ref={draftRef}
-          className="absolute inset-0 touch-none"
+          className={`absolute inset-0 touch-none ${isLockedForMe ? 'pointer-events-none' : ''}`}
           style={{ zIndex: 2 }}
         />
         <canvas
@@ -819,7 +824,7 @@ export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhitebo
           style={{ zIndex: 10 }}
         >
           {texts.map(textObj => (
-            <div key={textObj.id} className="pointer-events-auto">
+            <div key={textObj.id} className={isLockedForMe ? 'pointer-events-none' : 'pointer-events-auto'}>
               <DraggableText
                 textObj={textObj}
                 scale={scale}

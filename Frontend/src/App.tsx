@@ -190,72 +190,86 @@ export default function App() {
     <div className="relative w-screen h-screen h-[100dvh] bg-paper-bg overflow-hidden">
       <Toolbar />
 
-      {/* Top Right Controls (Avatars + Room ID) */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
-        
-        {/* Active Users Avatars */}
-        {roomUsers.length > 0 && (
-          <div className="flex items-center -space-x-2">
-            {roomUsers.map((ru) => {
-              const isHost = ru.id === hostId;
-              const amIHost = hostId && roomUsers.find(u => u.nickname === user.username)?.id === hostId;
-              const isMe = ru.nickname === user.username;
+      {/* Top Right Controls */}
+      <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-3">
+          {/* Active Users Avatars */}
+          {roomUsers.length > 0 && (
+            <div className="flex items-center -space-x-2">
+              {roomUsers.map((ru) => {
+                const isHost = ru.id === hostId;
+                const amIHost = hostId && roomUsers.find(u => u.nickname === user.username)?.id === hostId;
+                const isMe = ru.nickname === user.username;
 
-              return (
-                <div key={ru.id} className="relative group cursor-pointer" title={ru.nickname}>
-                  <div className="bg-white p-0.5 rounded-full shadow-sm border border-gray-200 hover:scale-110 hover:-translate-y-1 transition-all duration-200 hover:z-20 relative z-0">
-                    <AvatarPreview config={ru.avatar} size={32} />
-                  </div>
-                  
-                  {/* Crown for host */}
-                  {isHost && (
-                    <div className="absolute -top-2 -right-1 z-30">
-                      <Crown size={14} className="text-yellow-500 fill-yellow-400 drop-shadow-sm" />
+                return (
+                  <div key={ru.id} className="relative group cursor-pointer" title={ru.nickname}>
+                    <div className="bg-white p-0.5 rounded-full shadow-sm border border-gray-200 hover:scale-110 hover:-translate-y-1 transition-all duration-200 hover:z-20 relative z-0">
+                      <AvatarPreview config={ru.avatar} size={32} />
                     </div>
-                  )}
-                  
-                  {/* Tooltip + Kick */}
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto z-30">
-                    <div className="px-2 py-1 bg-gray-800 text-white text-[10px] font-bold rounded whitespace-nowrap">
-                      {ru.nickname}{isHost ? ' 👑' : ''}
-                    </div>
-                    {amIHost && !isMe && (
-                      <button
-                        onClick={() => {
-                          window.dispatchEvent(new CustomEvent('kick-user', { detail: { targetId: ru.id } }));
-                        }}
-                        className="px-1.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-[10px] font-bold transition-colors"
-                        title="Kick from room"
-                      >
-                        <X size={10} />
-                      </button>
+                    
+                    {/* Crown for host */}
+                    {isHost && (
+                      <div className="absolute -top-2 -right-1 z-30">
+                        <Crown size={14} className="text-yellow-500 fill-yellow-400 drop-shadow-sm" />
+                      </div>
                     )}
+                    
+                    {/* Tooltip + Kick */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto z-30">
+                      <div className="px-2 py-1 bg-gray-800 text-white text-[10px] font-bold rounded whitespace-nowrap">
+                        {ru.nickname}{isHost ? ' 👑' : ''}
+                      </div>
+                      {amIHost && !isMe && (
+                        <button
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('kick-user', { detail: { targetId: ru.id } }));
+                          }}
+                          className="px-1.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-[10px] font-bold transition-colors"
+                          title="Kick from room"
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Connection Status + Room ID + Lock */}
-        <div className="bg-white border border-paper-border px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-mono text-gray-800 flex items-center gap-2 md:gap-3 shadow-sm">
-          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-          <span><span className="hidden md:inline">ID: </span><span className="font-bold select-all">{roomId}</span></span>
-          <button onClick={copyRoomId} className="hover:text-paper-accent flex-shrink-0" title="Copy ID">
-            <Copy size={14} />
-          </button>
-          
-          {/* Lock Layer button (host only) */}
-          {hostId && roomUsers.find(u => u.nickname === user.username)?.id === hostId && (
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('toggle-layer-lock', { detail: { lock: !isLayerLocked } }))}
-              className={`flex-shrink-0 transition-colors ${isLayerLocked ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-paper-accent'}`}
-              title={isLayerLocked ? 'Unlock layer' : 'Lock current layer'}
-            >
-              {isLayerLocked ? <Lock size={14} /> : <LockOpen size={14} />}
-            </button>
+                );
+              })}
+            </div>
           )}
+
+          {/* Connection Status + Room ID + Lock */}
+          <div className="bg-white border border-paper-border px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-mono text-gray-800 flex items-center gap-2 md:gap-3 shadow-sm">
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
+            <span><span className="hidden md:inline">ID: </span><span className="font-bold select-all">{roomId}</span></span>
+            <button onClick={copyRoomId} className="hover:text-paper-accent flex-shrink-0" title="Copy ID">
+              <Copy size={14} />
+            </button>
+            
+            {/* Lock Layer button (host only) */}
+            {hostId && roomUsers.find(u => u.nickname === user.username)?.id === hostId && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('toggle-layer-lock', { detail: { lock: !isLayerLocked } }))}
+                className={`flex-shrink-0 transition-colors ${isLayerLocked ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-paper-accent'}`}
+                title={isLayerLocked ? 'Unlock layer' : 'Lock current layer'}
+              >
+                {isLayerLocked ? <Lock size={14} /> : <LockOpen size={14} />}
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Exit Room Button */}
+        <button
+          onClick={() => {
+            setIsInStudio(false);
+            setRoomId('');
+          }}
+          className="bg-white hover:bg-red-50 text-red-500 border border-paper-border hover:border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-colors"
+          title="Exit Room"
+        >
+          <LogOut size={14} />
+          Exit
+        </button>
       </div>
 
       {/* Disconnection Banner */}
