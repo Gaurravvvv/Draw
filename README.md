@@ -2,6 +2,39 @@
 
 A modern, ultra-low latency collaborative drawing application built with React, Socket.io, and a custom **High-Performance HTML5 Raster Engine**.
 
+🌍 **Live Demo:** [https://aettheriia.vercel.app/](https://aettheriia.vercel.app/)
+
+## 🏗️ Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph Frontend [Client - React / Vite]
+        UI[User Interface]
+        Zustand[Global State]
+        subgraph Engine [Custom 3-Layer Raster Engine]
+            L0[Layer 0: CSS Grid Background]
+            L1[Layer 1: Main Canvas Baked Pixels]
+            L2[Layer 2: Draft Canvas Live Strokes]
+            L3[Layer 3: DOM Overlay / Live Cursors]
+        end
+        UI --> Zustand
+        Zustand --> Engine
+        SocketClient[Socket.io Client]
+        Engine <--> SocketClient
+    end
+
+    subgraph Backend [Server - Node.js / Express]
+        SocketServer[Socket.io Server]
+        RoomState[In-Memory Room State]
+        UndoEngine[User-Scoped Undo Engine]
+        
+        SocketServer --> RoomState
+        RoomState --> UndoEngine
+    end
+
+    SocketClient <-->|WebSockets| SocketServer
+```
+
 ## 🚀 Features
 
 - **Real-time Collaboration**: Instantly see what others are drawing via optimized command-log syncing.

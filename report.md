@@ -4,9 +4,40 @@
 
 **Drawwww** is a modern, ultra-low latency collaborative drawing application. It enables users to draw, sketch, and annotate together in real time on a shared digital canvas. The project emphasizes high-performance graphics, a smart user interface, and robust functionality, including pressure-simulated pencil styles, fluid geometric shapes, Instagram-style floating text annotations, real-time multiplayer cursors, and a robust user-scoped undo/redo synchronization system.
 
+🌍 **Live Demo:** [https://aettheriia.vercel.app/](https://aettheriia.vercel.app/)
+
 ## 2. Architecture Overview
 
 The application follows a **Client-Server Architecture** augmented with **WebSockets** for real-time data synchronization.
+
+```mermaid
+graph TD
+    subgraph Frontend [Client - React / Vite]
+        UI[User Interface]
+        Zustand[Global State]
+        subgraph Engine [Custom 3-Layer Raster Engine]
+            L0[Layer 0: CSS Grid Background]
+            L1[Layer 1: Main Canvas Baked Pixels]
+            L2[Layer 2: Draft Canvas Live Strokes]
+            L3[Layer 3: DOM Overlay / Live Cursors]
+        end
+        UI --> Zustand
+        Zustand --> Engine
+        SocketClient[Socket.io Client]
+        Engine <--> SocketClient
+    end
+
+    subgraph Backend [Server - Node.js / Express]
+        SocketServer[Socket.io Server]
+        RoomState[In-Memory Room State]
+        UndoEngine[User-Scoped Undo Engine]
+        
+        SocketServer --> RoomState
+        RoomState --> UndoEngine
+    end
+
+    SocketClient <-->|WebSockets| SocketServer
+```
 
 - **Frontend (Client)**: A Single Page Application (SPA) built with React. It handles the UI, manages an advanced **3-Layer Custom HTML5 Raster Engine**, and communicates real-time drawing events and cursor coordinates.
 - **Backend (Server)**: A Node.js/Express service that provides RESTful endpoints for health checks and manages real-time Socket.io connections. It synchronizes a compact "command log" of drawing strokes rather than sending heavy image data, and manages room host privileges.
