@@ -10,29 +10,36 @@ A modern, ultra-low latency collaborative drawing application built with React, 
 graph TD
     subgraph Frontend [Client - React / Vite]
         UI[User Interface]
-        Zustand[Global State]
+        Zustand[Global State & Game Store]
         subgraph Engine [Custom 3-Layer Raster Engine]
             L0[Layer 0: CSS Grid Background]
             L1[Layer 1: Main Canvas Baked Pixels]
             L2[Layer 2: Draft Canvas Live Strokes]
             L3[Layer 3: DOM Overlay / Live Cursors]
         end
+        GameScreens[Game Screens & Orchestrator]
         UI --> Zustand
+        GameScreens --> Zustand
         Zustand --> Engine
         SocketClient[Socket.io Client]
         Engine <--> SocketClient
+        GameScreens <--> SocketClient
     end
 
     subgraph Backend [Server - Node.js / Express]
         SocketServer[Socket.io Server]
-        RoomState[In-Memory Room State]
+        RoomState[In-Memory Room State & Game State]
         UndoEngine[User-Scoped Undo Engine]
+        API[Express API Routes]
+        ExternalAI[Gemini 2.0 / Groq AI]
         
         SocketServer --> RoomState
         RoomState --> UndoEngine
+        API --> ExternalAI
     end
 
     SocketClient <-->|WebSockets| SocketServer
+    Frontend -->|HTTP REST| API
 ```
 
 ## 🚀 Features
