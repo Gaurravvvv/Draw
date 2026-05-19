@@ -8,6 +8,8 @@ import path from 'path';
 // Load environment variables FIRST before importing local modules that depend on them
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 import { registerSocketHandlers, rooms } from './socket/handlers';
+import { registerGameSocketHandlers } from './socket/gameHandlers';
+import gameRoutes from './routes/gameRoutes';
 
 
 
@@ -16,7 +18,7 @@ const app = express();
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased for PNG base64 payloads
 app.use(
   cors({
     origin: CLIENT_URL,
@@ -24,6 +26,9 @@ app.use(
     credentials: true,
   })
 );
+
+// Game mode API routes
+app.use('/api/game', gameRoutes);
 
 // Silence Chrome DevTools .well-known probe (harmless, but noisy in console)
 app.get('/.well-known/{*path}', (_req, res) => res.status(204).end());
@@ -53,6 +58,7 @@ const io = new Server(server, {
 });
 
 registerSocketHandlers(io);
+registerGameSocketHandlers(io);
 
 // --- Start ---
 server.listen(PORT, () => {

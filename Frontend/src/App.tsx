@@ -3,10 +3,11 @@ import { RasterWhiteboard } from './components/RasterWhiteboard';
 import { Toolbar } from './components/Toolbar';
 import { Toast } from './components/Toast';
 import { useStore } from './store';
-import { Copy, LogOut, X, Lock, LockOpen, Crown, Pencil, ArrowRight } from 'lucide-react';
+import { Copy, LogOut, X, Lock, LockOpen, Crown, Pencil, ArrowRight, Gamepad2 } from 'lucide-react';
 import { AvatarEditor } from './components/AvatarEditor';
 import { AvatarPreview } from './components/AvatarPreview';
 import { playDing } from './engine/audio';
+import { GameMode } from './game/GameMode';
 
 interface User {
   username: string;
@@ -17,6 +18,7 @@ export default function App() {
   const [roomId, setRoomId] = useState('');
   const [isInStudio, setIsInStudio] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isInGameMode, setIsInGameMode] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
 
   // Toast & Avatar from store
@@ -82,7 +84,18 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     setIsInStudio(false);
+    setIsInGameMode(false);
   };
+
+  // --- VIEW: GAME MODE ---
+  if (isInGameMode && user) {
+    return (
+      <GameMode
+        nickname={user.username}
+        onExit={() => setIsInGameMode(false)}
+      />
+    );
+  }
 
   // --- VIEW: LOGIN ---
   if (!user) {
@@ -177,6 +190,19 @@ export default function App() {
               Join
             </button>
           </form>
+
+          <div className="flex items-center gap-4 text-gray-400">
+            <div className="h-px bg-gray-200 flex-1"></div>
+            <span className="text-xs uppercase font-bold tracking-wider">game mode</span>
+            <div className="h-px bg-gray-200 flex-1"></div>
+          </div>
+
+          <button
+            onClick={() => setIsInGameMode(true)}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-md shadow-purple-500/20 hover:shadow-purple-500/30"
+          >
+            <Gamepad2 size={20} /> Draw This Shytt 🎮
+          </button>
 
         </div>
 

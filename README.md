@@ -60,6 +60,13 @@ graph TD
     - The first user in a room becomes the Host.
     - Features include kicking disruptive users and toggling layer locks to prevent drawing.
 
+### 🎮 "Draw This Shytt" Game Mode
+A brand new, built-in turn-based drawing party game!
+- **AI Scoring Judge**: Powered by **Gemini 2.0 Flash Vision**, the AI scores your drawing (0-100) based on accuracy and resemblance to the target word.
+- **AI Word Generation**: Powered by **Groq (Llama 3.3 70B)** to generate creative, random, drawable words on the fly (or use the 160+ predefined categories).
+- **Isolated Canvas Phase**: Players draw on their own private canvas while the "Picker" gets a live spectator dashboard to watch everyone's progress simultaneously.
+- **Score Reveals & Leaderboard**: Animated side-by-side reveals of everyone's drawings alongside their AI-assigned scores and an ongoing leaderboard.
+
 ## 🛠️ Setup & Installation
 
 ### Option 1: Docker (Recommended)
@@ -118,6 +125,7 @@ npm run dev
     - Use **Undo/Redo** buttons or `Ctrl+Z` / `Ctrl+Y`.
     - Click **Download** to save your masterpiece as a PNG.
 5.  Share the Room ID with a friend to collaborate in real-time.
+6.  Or click **Draw This Shytt 🎮** from the lobby to start a drawing competition!
 
 ## 🏗️ Project Structure
 
@@ -147,9 +155,21 @@ npm run dev
 
 ### Environment Variables
 
-**Backend**:
-- `PORT` — Server port (default: 3000)
-- `CLIENT_URL` — Frontend URL for CORS (default: http://localhost:5173)
+Create a `.env` file in the root of the project:
 
-**Frontend** (see `Frontend/.env.example`):
-- `VITE_API_URL` — Backend API URL (default: http://localhost:3000)
+```env
+# Server Config
+PORT=3000
+
+# Frontend Config
+VITE_API_URL=http://localhost:3000
+CLIENT_URL=http://localhost:3001
+
+# Game Mode — AI Scoring (Required for Draw This Shytt)
+# Get a free key: https://aistudio.google.com/apikey
+GEMINI_API_KEY=your_gemini_key_here
+
+# Game Mode — AI Word Generation (Optional)
+# Get a free key: https://console.groq.com/keys
+GROQ_API_KEY=your_groq_key_here
+```
