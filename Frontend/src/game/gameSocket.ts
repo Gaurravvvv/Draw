@@ -98,18 +98,11 @@ export function useGameSocket() {
       }
     });
 
-    // ── Drawing ended ──
-    // IMPORTANT: We must signal DrawingScreen to export BEFORE unmounting it.
-    // If we set screen='scoring' immediately, React unmounts DrawingScreen,
-    // which cleans up window.__gameCanvasExport — so the export is impossible.
-    // Solution: fire a custom event first, then delay the screen transition.
     socket.on('drawing-ended', () => {
       const role = useGameStore.getState().role;
       if (role !== 'picker') {
-        // Signal DrawingScreen to export NOW (while still mounted)
+        // Signal DrawingScreen to export NOW (it will set screen to scoring itself)
         window.dispatchEvent(new CustomEvent('game-drawing-ended'));
-        // Give it 400ms to complete the export + HTTP request before unmounting
-        setTimeout(() => store.setScreen('scoring'), 400);
       } else {
         // Picker (spectator) has no canvas to export — transition immediately
         store.setScreen('scoring');

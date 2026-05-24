@@ -9,6 +9,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 import { registerSocketHandlers, rooms } from './socket/handlers';
 import { registerGameSocketHandlers } from './socket/gameHandlers';
+import { registerScribbleSocketHandlers } from './socket/scribbleHandlers';
 import gameRoutes from './routes/gameRoutes';
 
 
@@ -59,6 +60,7 @@ const io = new Server(server, {
 
 registerSocketHandlers(io);
 registerGameSocketHandlers(io);
+registerScribbleSocketHandlers(io);
 
 // --- Start ---
 server.listen(PORT, () => {

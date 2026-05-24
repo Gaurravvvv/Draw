@@ -213,10 +213,15 @@ async function runTurn(io: Server, roomCode: string) {
   room.activeTimer = null;
   io.to(`game:${roomCode}`).emit('drawing-ended', {});
 
-  // ── 7. Wait for drawings to be submitted (give 5 seconds for upload) ──
-  await new Promise<void>((resolve) => setTimeout(resolve, 5000));
-
-  if (!gameRooms[roomCode]) return;
+  // ── 7. Wait for drawings to be submitted and scored ──
+  // Instead of a blind 5-second wait, actively wait for all turnScores to arrive (max 20 seconds)
+  const drawersCount = room.players.size - 1; // everyone except picker
+  let waitLoops = 0;
+  while (room.turnScores.length < drawersCount && waitLoops < 20) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    waitLoops++;
+    if (!gameRooms[roomCode] || gameRooms[roomCode].state === 'ended') return;
+  }
 
   // ── 8. Score with Gemini and reveal ──
   // Scoring happens via HTTP POST, collected in turnDrawings map

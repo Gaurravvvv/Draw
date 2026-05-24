@@ -14,6 +14,9 @@ export interface GameTimer {
 /**
  * Start a countdown timer that emits 'timer-tick' every second.
  * Returns a GameTimer object with a stop() method.
+ * 
+ * @param roomPrefix - The socket.io room prefix (e.g. 'game' or 'scribble').
+ *                     Defaults to 'game' for backward compatibility.
  */
 export function startTimer(
   io: Server,
@@ -21,6 +24,7 @@ export function startTimer(
   durationSeconds: number,
   onTick?: (remaining: number) => void,
   onComplete?: () => void,
+  roomPrefix: string = 'game',
 ): GameTimer {
   const timer: GameTimer = {
     remaining: durationSeconds,
@@ -34,13 +38,13 @@ export function startTimer(
   };
 
   // Emit initial tick
-  io.to(`game:${roomCode}`).emit('timer-tick', { remaining: timer.remaining });
+  io.to(`${roomPrefix}:${roomCode}`).emit('timer-tick', { remaining: timer.remaining });
   onTick?.(timer.remaining);
 
   timer.intervalId = setInterval(() => {
     timer.remaining--;
 
-    io.to(`game:${roomCode}`).emit('timer-tick', { remaining: timer.remaining });
+    io.to(`${roomPrefix}:${roomCode}`).emit('timer-tick', { remaining: timer.remaining });
     onTick?.(timer.remaining);
 
     if (timer.remaining <= 0) {
@@ -54,18 +58,21 @@ export function startTimer(
 
 /**
  * Run a short countdown (e.g., 3...2...1) with a specific event name.
+ * 
+ * @param roomPrefix - The socket.io room prefix. Defaults to 'game'.
  */
 export function startCountdown(
   io: Server,
   roomCode: string,
   count: number,
   eventName: string,
+  roomPrefix: string = 'game',
 ): Promise<void> {
   return new Promise((resolve) => {
     let remaining = count;
 
     const emit = () => {
-      io.to(`game:${roomCode}`).emit(eventName, { count: remaining });
+      io.to(`${roomPrefix}:${roomCode}`).emit(eventName, { count: remaining });
       remaining--;
 
       if (remaining < 0) {

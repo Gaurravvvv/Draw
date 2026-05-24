@@ -70,6 +70,7 @@ graph TD
 - **Real-time Engine**: Socket.io
 - **AI Integration**: Google Gemini 2.0 Flash Vision API (Scoring), Groq Llama 3 (Word Generation)
 - **Session Management**: Ephemeral memory maps for room state and game logic
+- **Levenshtein Algorithm**: Native proximity algorithm used in Scribble Mode for "close guess" detection
 
 ### Deployment & Infrastructure
 - **Containerization**: Docker, Docker Compose
@@ -86,11 +87,13 @@ graph TD
 - **`engine/RasterBrush.ts` & `floodFill.ts`**: The physics and pixel-manipulation core. `RasterBrush` utilizes `perfect-freehand` to translate pointer points into beautiful SVG-like raster paths. `floodFill` utilizes a high-performance stack-based BFS pixel replacement algorithm on `ImageData`.
 - **`store.ts` & `gameStore.ts`**: The Zustand global state stores. They manage application-wide states such as the current selected tool, active texts, room context, user avatar settings, and the complex state machine for the turn-based game mode.
 - **Game Mode Screens**: Components like `GameMode.tsx`, `GameLobby.tsx`, `DrawingScreen.tsx`, and `SpectatorScreen.tsx` orchestrate the "Draw This Shytt" game loop, handling countdowns, isolated canvases, and animated score reveals.
+- **Scribble Mode System**: A fully isolated game mode located under `scribble/`. Contains `ScribbleMode.tsx` (routing orchestrator), `scribbleStore.ts` (independent Zustand store), `scribbleSocket.ts` (dedicated socket hook), `ScribbleDrawScreen.tsx` (includes collapsible chat panel for the drawer), and `ScribbleGuessScreen.tsx` (real-time chat guessing with user avatars).
 
 ### 4.2 Backend Components
 
 - **`index.ts`**: The main entry point for the Express server. It configures middleware, sets up the Socket.io server, manages CORS policies, and registers routes (including the `/api/game` routes for AI integration).
 - **`socket/handlers.ts` & `socket/gameHandlers.ts`**: The core real-time logic. They listen to events like `join-room`, `draw-event`, and `cursor-move`, broadcasting them with near-zero latency. `gameHandlers.ts` securely manages the turn-based state machine, timers, and score tracking for the game mode.
+- **`socket/scribbleHandlers.ts` & `game/scribbleState.ts`**: Dedicated backend handlers for the Scribble game mode. `scribbleHandlers.ts` listens to all Scribble specific socket events and handles room customization, joining, and guessing. `scribbleState.ts` manages the game engine, turn rotations, hint reveals, and speed-based scoring algorithms.
 - **User-Scoped Undo Engine**: Integrated directly into `handlers.ts`. Every stroke is tagged with the user's `authorId`. When a user requests an `undo`, the server filters out only *their* last action, and triggers an `undo-replay` broadcast to the entire room to mathematically reconstruct the canvas correctly for everyone.
 - **AI Scoring (`gameRoutes.ts`)**: Secure backend REST API endpoints that package PNG exports and send them alongside strict deterministic prompts to the **Gemini 2.0 Flash Vision** model for parsing 0-100 scores. Also interfaces with **Groq** for generating creative drawing words.
 
@@ -111,7 +114,11 @@ graph TD
    - A fully built-in, real-time multiplayer drawing competition.
    - Utilizes isolated Canvas 2D instances for each player while a designated "Picker" watches everyone's progress live on a unified dashboard.
    - Features autonomous AI judging via the Google Gemini Vision API, which visually inspects each player's canvas export and assigns a highly accurate 0-100 score based on resemblance to the target word.
-7. **Host Controls & Moderation**: Integrated privilege system that grants room creators the ability to lock canvases to read-only or kick disruptive participants.
+7. **"Scribble" Game Mode**:
+   - A classic multiplayer drawing and guessing game.
+   - Includes real-time guess broadcasting, a proximity-based fuzzy guess checker using the Levenshtein distance, a server-side timer-based hint engine, and time-aware scoring.
+   - Integrates custom player avatars directly into the chat and guess history stream.
+8. **Host Controls & Moderation**: Integrated privilege system that grants room creators the ability to lock canvases to read-only or kick disruptive participants.
 
 ## 6. Conclusion
 

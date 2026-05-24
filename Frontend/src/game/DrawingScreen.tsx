@@ -26,18 +26,21 @@ export function DrawingScreen({ onSendSnapshot, onSubmitDrawing }: DrawingScreen
   }, [roomCode, onSendSnapshot]);
 
   // Submit drawing on 'game-drawing-ended' custom event.
-  // This event fires BEFORE the screen changes to 'scoring', so the canvas
-  // is still mounted and window.__gameCanvasExport is still available.
   useEffect(() => {
     const handleDrawingEnded = () => {
       const exportFn = (window as any).__gameCanvasExport;
-      if (!exportFn) {
-        console.warn('[Game] __gameCanvasExport not found at submission time');
-        return;
-      }
-      const png = exportFn();
+      const png = exportFn ? exportFn() : '';
+      
+      // Transition to scoring screen immediately after grabbing the PNG
+      useGameStore.getState().setScreen('scoring');
+
       if (!png || png.length < 200) {
-        console.warn('[Game] Canvas export empty — nothing to submit');
+        console.warn('[Game] Canvas export empty — submitting 0 score');
+        fetch(`${API_URL}/api/game/score`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomCode, playerId: myId, pngBase64: 'empty' }),
+        }).catch(err => console.error(err));
         return;
       }
 
@@ -99,7 +102,7 @@ export function DrawingScreen({ onSendSnapshot, onSubmitDrawing }: DrawingScreen
         <GameCanvas
           locked={isLocked}
           onSnapshot={handleSnapshot}
-          snapshotInterval={800}
+          snapshotInterval={300}
         />
       </div>
 

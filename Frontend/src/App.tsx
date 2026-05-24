@@ -3,11 +3,12 @@ import { RasterWhiteboard } from './components/RasterWhiteboard';
 import { Toolbar } from './components/Toolbar';
 import { Toast } from './components/Toast';
 import { useStore } from './store';
-import { Copy, LogOut, X, Lock, LockOpen, Crown, Pencil, ArrowRight, Gamepad2 } from 'lucide-react';
+import { Copy, LogOut, X, Lock, LockOpen, Crown, Pencil, ArrowRight, Gamepad2, MessageCircle } from 'lucide-react';
 import { AvatarEditor } from './components/AvatarEditor';
 import { AvatarPreview } from './components/AvatarPreview';
 import { playDing } from './engine/audio';
 import { GameMode } from './game/GameMode';
+import { ScribbleMode } from './scribble/ScribbleMode';
 
 interface User {
   username: string;
@@ -19,6 +20,7 @@ export default function App() {
   const [isInStudio, setIsInStudio] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isInGameMode, setIsInGameMode] = useState(false);
+  const [isInScribbleMode, setIsInScribbleMode] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
 
   // Toast & Avatar from store
@@ -85,7 +87,18 @@ export default function App() {
     setUser(null);
     setIsInStudio(false);
     setIsInGameMode(false);
+    setIsInScribbleMode(false);
   };
+
+  // --- VIEW: SCRIBBLE MODE ---
+  if (isInScribbleMode && user) {
+    return (
+      <ScribbleMode
+        nickname={user.username}
+        onExit={() => setIsInScribbleMode(false)}
+      />
+    );
+  }
 
   // --- VIEW: GAME MODE ---
   if (isInGameMode && user) {
@@ -202,6 +215,13 @@ export default function App() {
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-md shadow-purple-500/20 hover:shadow-purple-500/30"
           >
             <Gamepad2 size={20} /> Draw This Shytt 🎮
+          </button>
+
+          <button
+            onClick={() => setIsInScribbleMode(true)}
+            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30"
+          >
+            <MessageCircle size={20} /> Scribble ✏️
           </button>
 
         </div>

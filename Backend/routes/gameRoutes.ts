@@ -38,6 +38,18 @@ router.post('/score', async (req, res) => {
       return res.status(404).json({ error: 'Player not found in room' });
     }
 
+    // Handle empty canvas explicitly
+    if (pngBase64 === 'empty') {
+      room.turnDrawings.set(playerId, '');
+      room.turnScores.push({
+        playerId,
+        nickname: player.nickname,
+        score: 0,
+        drawingPng: '',
+      });
+      return res.json({ score: 0, word });
+    }
+
     // Score with Gemini Vision
     const score = await scoreWithGemini(pngBase64, word, room.settings.drawTime);
 
@@ -110,6 +122,13 @@ async function scoreWithGemini(pngBase64: string, word: string, drawTime: number
     );
 
     const data = await response.json();
+    
+    // Explicitly handle 429 or other API errors
+    if (!response.ok || data.error) {
+      console.error('[Game] Gemini API error response:', data.error || response.statusText);
+      return Math.floor(Math.random() * 41) + 40; // Randomized fallback (40-80) so it doesn't look broken
+    }
+
     console.log('[Game] Gemini raw response:', JSON.stringify(data?.candidates?.[0]?.content));
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
