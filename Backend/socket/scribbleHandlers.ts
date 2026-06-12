@@ -4,6 +4,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
+import crypto from 'crypto';
 import {
   scribbleRooms,
   createScribbleRoom,
@@ -20,13 +21,14 @@ import {
 } from '../game/scribbleState';
 import { getRandomWords } from '../game/wordLists';
 import { startTimer, startCountdown } from '../game/timer';
+import { sanitizeNickname, validateGameSettings, sanitizeGuess } from '../validation';
 
-// Generate a short room code
+// Generate a short room code using cryptographically secure randomness
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 5; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(crypto.randomInt(chars.length));
   }
   return code;
 }
@@ -320,7 +322,7 @@ export function registerScribbleSocketHandlers(io: Server) {
 
       const player: ScribblePlayer = {
         id: socket.id,
-        nickname: data.nickname || 'Host',
+        nickname: sanitizeNickname(data.nickname) || 'Host',
         avatar: data.avatar,
         totalScore: 0,
         hasBeenDrawer: false,
@@ -354,7 +356,7 @@ export function registerScribbleSocketHandlers(io: Server) {
 
       const player: ScribblePlayer = {
         id: socket.id,
-        nickname: data.nickname || 'Player',
+        nickname: sanitizeNickname(data.nickname) || 'Player',
         avatar: data.avatar,
         totalScore: 0,
         hasBeenDrawer: false,
@@ -377,7 +379,10 @@ export function registerScribbleSocketHandlers(io: Server) {
     socket.on('update-scribble-settings', (data: { roomCode: string; settings: Partial<ScribbleSettings> }) => {
       const room = scribbleRooms[data.roomCode];
       if (!room || room.hostId !== socket.id || room.state !== 'lobby') return;
-      Object.assign(room.settings, data.settings);
+
+      // Validate and whitelist settings to prevent prototype pollution
+      const safeSettings = validateGameSettings(data.settings);
+      Object.assign(room.settings, safeSettings);
       io.to(`scribble:${data.roomCode}`).emit('scribble-lobby-state', getScribbleLobbyState(room));
     });
 
@@ -434,7 +439,8 @@ export function registerScribbleSocketHandlers(io: Server) {
       const player = room.players.get(socket.id);
       if (!player) return;
 
-      const guess = data.guess.trim().toLowerCase();
+      const guess = sanitizeGuess(data.guess).toLowerCase();
+      if (!guess) return; // Empty after sanitization
       const word = room.currentWord.toLowerCase();
 
       if (guess === word) {

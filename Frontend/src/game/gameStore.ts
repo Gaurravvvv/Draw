@@ -46,6 +46,7 @@ interface GameState {
   isHost: boolean;
   myId: string;
   myNickname: string;
+  scoreToken: string; // Server-issued token for IDOR-safe score submission
 
   // Room state
   players: GamePlayer[];
@@ -84,6 +85,7 @@ interface GameState {
   setIsHost: (isHost: boolean) => void;
   setMyId: (id: string) => void;
   setMyNickname: (nickname: string) => void;
+  setScoreToken: (token: string) => void;
   setPlayers: (players: GamePlayer[]) => void;
   setSettings: (settings: GameSettings) => void;
   setHostId: (id: string) => void;
@@ -114,6 +116,7 @@ export const useGameStore = create<GameState>((set) => ({
   isHost: false,
   myId: '',
   myNickname: '',
+  scoreToken: '',
   players: [],
   settings: { ...DEFAULT_SETTINGS },
   hostId: '',
@@ -141,6 +144,7 @@ export const useGameStore = create<GameState>((set) => ({
   setIsHost: (isHost) => set({ isHost }),
   setMyId: (myId) => set({ myId }),
   setMyNickname: (myNickname) => set({ myNickname }),
+  setScoreToken: (scoreToken) => set({ scoreToken }),
   setPlayers: (players) => set({ players }),
   setSettings: (settings) => set({ settings }),
   setHostId: (hostId) => set({ hostId }),

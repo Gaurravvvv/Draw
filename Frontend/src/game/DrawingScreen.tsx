@@ -17,7 +17,7 @@ interface DrawingScreenProps {
 }
 
 export function DrawingScreen({ onSendSnapshot, onSubmitDrawing }: DrawingScreenProps) {
-  const { timerValue, roomCode, screen, myId, currentRound, currentTurn, totalRounds } = useGameStore();
+  const { timerValue, roomCode, screen, myId, currentRound, currentTurn, totalRounds, scoreToken } = useGameStore();
   const isLocked = screen === 'scoring';
 
   // Periodic snapshots for spectator
@@ -39,7 +39,7 @@ export function DrawingScreen({ onSendSnapshot, onSubmitDrawing }: DrawingScreen
         fetch(`${API_URL}/api/game/score`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomCode, playerId: myId, pngBase64: 'empty' }),
+          body: JSON.stringify({ scoreToken, pngBase64: 'empty' }),
         }).catch(err => console.error(err));
         return;
       }
@@ -53,7 +53,7 @@ export function DrawingScreen({ onSendSnapshot, onSubmitDrawing }: DrawingScreen
       fetch(`${API_URL}/api/game/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomCode, playerId: myId, pngBase64: png }),
+        body: JSON.stringify({ scoreToken, pngBase64: png }),
       })
         .then(r => r.json())
         .then(data => console.log('[Game] Gemini score:', data))
@@ -62,7 +62,7 @@ export function DrawingScreen({ onSendSnapshot, onSubmitDrawing }: DrawingScreen
 
     window.addEventListener('game-drawing-ended', handleDrawingEnded);
     return () => window.removeEventListener('game-drawing-ended', handleDrawingEnded);
-  }, [roomCode, myId, onSubmitDrawing]);
+  }, [roomCode, myId, scoreToken, onSubmitDrawing]);
 
   const timerPct = (timerValue / (useGameStore.getState().settings?.drawTime || 60)) * 100;
   const isUrgent = timerValue <= 10;

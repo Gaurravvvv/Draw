@@ -5,23 +5,33 @@
 
 import { Router } from 'express';
 import { gameRooms } from '../socket/gameHandlers';
+import { validateScoreToken } from '../socket/gameHandlers';
 import { WORD_CATEGORIES } from '../game/wordLists';
+import { validateBase64Payload } from '../validation';
 
 const router = Router();
 
 /**
  * POST /api/game/score
- * Body: { roomCode, playerId, pngBase64 }
+ * Body: { scoreToken, pngBase64 }
  * 
- * Uses Gemini Vision to score drawing accuracy (0-100)
+ * Uses a server-generated token (prevents IDOR — playerId derived from token, not body)
  */
 router.post('/score', async (req, res) => {
   try {
-    const { roomCode, playerId, pngBase64 } = req.body;
+    const { scoreToken, pngBase64 } = req.body;
 
-    if (!roomCode || !playerId || !pngBase64) {
-      return res.status(400).json({ error: 'Missing required fields: roomCode, playerId, pngBase64' });
+    if (!scoreToken || !pngBase64) {
+      return res.status(400).json({ error: 'Missing required fields: scoreToken, pngBase64' });
     }
+
+    // Validate the score token to derive playerId and roomCode (IDOR protection)
+    const tokenData = validateScoreToken(scoreToken);
+    if (!tokenData) {
+      return res.status(403).json({ error: 'Invalid or expired score token' });
+    }
+
+    const { playerId, roomCode } = tokenData;
 
     const room = gameRooms[roomCode];
     if (!room) {
@@ -50,8 +60,14 @@ router.post('/score', async (req, res) => {
       return res.json({ score: 0, word });
     }
 
+    // Validate base64 payload size and format
+    const validatedPayload = validateBase64Payload(pngBase64);
+    if (!validatedPayload) {
+      return res.status(400).json({ error: 'Invalid or oversized image payload' });
+    }
+
     // Score with Gemini Vision
-    const score = await scoreWithGemini(pngBase64, word, room.settings.drawTime);
+    const score = await scoreWithGemini(validatedPayload, word, room.settings.drawTime);
 
     // Store the drawing and score
     room.turnDrawings.set(playerId, pngBase64);
@@ -74,7 +90,6 @@ router.post('/score', async (req, res) => {
  */
 async function scoreWithGemini(pngBase64: string, word: string, drawTime: number): Promise<number> {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  console.log('[Game] Gemini key status:', GEMINI_API_KEY ? `loaded (${GEMINI_API_KEY.slice(0, 8)}...)` : 'MISSING');
 
   if (!GEMINI_API_KEY) {
     console.warn('[Game] No GEMINI_API_KEY set — returning random score for testing');

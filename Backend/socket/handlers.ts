@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io';
+import { sanitizeNickname } from '../validation';
 
 // --- Raster-architecture room state ---
 interface RasterRoomState {
@@ -151,7 +152,7 @@ export function registerSocketHandlers(io: Server) {
       socket.join(roomId);
       socketRooms.add(roomId);
       console.log(`User ${socket.id} joined room ${roomId}`);
-      const nickname = typeof data === 'object' && data.nickname ? data.nickname : 'Anonymous';
+      const nickname = sanitizeNickname(typeof data === 'object' ? data.nickname : null);
       const avatar = typeof data === 'object' && data.avatar ? data.avatar : { baseColor: '#000', eyesId: 0, mouthId: 0 };
       
       room.users.set(socket.id, { id: socket.id, nickname, avatar });

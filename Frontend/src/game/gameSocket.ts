@@ -22,15 +22,17 @@ export function useGameSocket() {
     });
 
     // ── Room created ──
-    socket.on('game-room-created', (data: { roomCode: string }) => {
+    socket.on('game-room-created', (data: { roomCode: string; scoreToken: string }) => {
       store.setRoomCode(data.roomCode);
+      store.setScoreToken(data.scoreToken);
       store.setIsHost(true);
       store.setScreen('lobby');
     });
 
     // ── Room joined ──
-    socket.on('game-joined', (data: { roomCode: string }) => {
+    socket.on('game-joined', (data: { roomCode: string; scoreToken: string }) => {
       store.setRoomCode(data.roomCode);
+      store.setScoreToken(data.scoreToken);
       store.setScreen('lobby');
     });
 

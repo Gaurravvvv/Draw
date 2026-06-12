@@ -14,6 +14,10 @@ COPY . .
 # Build TypeScript
 RUN npx tsc
 
+# Create non-root user for security (prevents container escape → root access)
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
 EXPOSE 3000
 
 CMD ["node", "dist/index.js"]

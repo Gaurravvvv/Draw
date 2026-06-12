@@ -4,6 +4,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
+import crypto from 'crypto';
 import {
   gameRooms,
   createGameRoom,
@@ -17,15 +18,48 @@ import {
 } from '../game/gameState';
 import { getRandomWords, WORD_CATEGORIES } from '../game/wordLists';
 import { startTimer, startCountdown } from '../game/timer';
+import { sanitizeNickname, validateGameSettings } from '../validation';
 
-// Generate a short room code
+// Generate a short room code using cryptographically secure randomness
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No ambiguous chars
   let code = '';
   for (let i = 0; i < 5; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(crypto.randomInt(chars.length));
   }
   return code;
+}
+
+// ── Score Token System ─────────────────────────────────────────────────────
+// Maps scoreToken → { playerId, roomCode } for IDOR-safe score submission
+const scoreTokens = new Map<string, { playerId: string; roomCode: string }>();
+
+/** Generate a score token for a player joining a game */
+export function generateScoreToken(playerId: string, roomCode: string): string {
+  const token = crypto.randomBytes(32).toString('hex');
+  scoreTokens.set(token, { playerId, roomCode });
+  return token;
+}
+
+/** Validate a score token and return the associated player/room info */
+export function validateScoreToken(token: string): { playerId: string; roomCode: string } | null {
+  const entry = scoreTokens.get(token);
+  if (!entry) return null;
+  return entry;
+}
+
+/** Clear a score token (cleanup) */
+export function clearScoreToken(token: string): void {
+  scoreTokens.delete(token);
+}
+
+/** Clear all tokens for a room (game ended) */
+export function clearRoomScoreTokens(roomCode: string): void {
+  for (const [token, entry] of scoreTokens) {
+    if (entry.roomCode === roomCode) {
+      scoreTokens.delete(token);
+    }
+  }
 }
 
 // Groq word generation
@@ -300,7 +334,7 @@ export function registerGameSocketHandlers(io: Server) {
 
       const player: GamePlayer = {
         id: socket.id,
-        nickname: data.nickname || 'Host',
+        nickname: sanitizeNickname(data.nickname) || 'Host',
         avatar: data.avatar,
         totalScore: 0,
         hasBeenPicker: false,
@@ -310,7 +344,10 @@ export function registerGameSocketHandlers(io: Server) {
       socket.join(`game:${roomCode}`);
       gameSocketRooms.add(roomCode);
 
-      socket.emit('game-room-created', { roomCode });
+      // Generate score token for this player
+      const scoreToken = generateScoreToken(socket.id, roomCode);
+
+      socket.emit('game-room-created', { roomCode, scoreToken });
       io.to(`game:${roomCode}`).emit('game-lobby-state', getGameLobbyState(room));
     });
 
@@ -336,7 +373,7 @@ export function registerGameSocketHandlers(io: Server) {
 
       const player: GamePlayer = {
         id: socket.id,
-        nickname: data.nickname || 'Player',
+        nickname: sanitizeNickname(data.nickname) || 'Player',
         avatar: data.avatar,
         totalScore: 0,
         hasBeenPicker: false,
@@ -351,7 +388,10 @@ export function registerGameSocketHandlers(io: Server) {
       socket.join(`game:${roomCode}`);
       gameSocketRooms.add(roomCode);
 
-      socket.emit('game-joined', { roomCode });
+      // Generate score token for this player
+      const scoreToken = generateScoreToken(socket.id, roomCode);
+
+      socket.emit('game-joined', { roomCode, scoreToken });
       io.to(`game:${roomCode}`).emit('game-lobby-state', getGameLobbyState(room));
     });
 
@@ -361,7 +401,9 @@ export function registerGameSocketHandlers(io: Server) {
       if (!room || room.hostId !== socket.id) return;
       if (room.state !== 'lobby') return;
 
-      Object.assign(room.settings, data.settings);
+      // Validate and whitelist settings to prevent prototype pollution
+      const safeSettings = validateGameSettings(data.settings);
+      Object.assign(room.settings, safeSettings);
       io.to(`game:${data.roomCode}`).emit('game-lobby-state', getGameLobbyState(room));
     });
 
