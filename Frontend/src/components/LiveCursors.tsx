@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { MousePointer2 } from 'lucide-react';
 import { AvatarPreview } from './AvatarPreview';
 import type { AvatarConfig } from './AvatarPreview';
@@ -17,47 +17,47 @@ interface LiveCursorsProps {
 }
 
 export const LiveCursors = ({ scale }: LiveCursorsProps) => {
-  const [cursors, setCursors] = useState<Record<string, CursorData>>({});
   const roomUsers = useStore((state) => state.roomUsers);
+  const socketId = useStore((state) => state.socketId);
+
+  // Filter to other users in the room to display their cursors
+  const otherUsers = roomUsers.filter((u) => u.id !== socketId);
 
   useEffect(() => {
-    const handleRemoteCursor = (e: CustomEvent<CursorData>) => {
-      const data = e.detail;
-      setCursors((prev) => ({
-        ...prev,
-        [data.id]: data,
-      }));
+    const handleRemoteCursor = (e: Event) => {
+      const data = (e as CustomEvent<CursorData>).detail;
+      const el = document.getElementById(`remote-cursor-${data.id}`);
+      if (el) {
+        // GPU accelerated direct DOM translation
+        el.style.transform = `translate3d(${data.x}px, ${data.y}px, 0)`;
+        el.style.opacity = '1';
+      }
     };
 
     window.addEventListener('remote-cursor-move', handleRemoteCursor as EventListener);
 
-    // Clean up idle cursors every 5 seconds
-    const interval = setInterval(() => {
-      // In a real app, you'd add timestamps to data and prune old ones.
-      // For now, they persist until the user disconnects (which could clear them if we handled disconnect events for cursors).
-    }, 5000);
-
     return () => {
       window.removeEventListener('remote-cursor-move', handleRemoteCursor as EventListener);
-      clearInterval(interval);
     };
   }, []);
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
-      {Object.values(cursors)
-        .filter(cursor => roomUsers.some(u => u.id === cursor.id))
-        .map((cursor) => (
+      {otherUsers.map((user) => (
         <div
-          key={cursor.id}
-          className="absolute flex flex-col items-center transition-all duration-100 ease-linear pointer-events-none"
+          id={`remote-cursor-${user.id}`}
+          key={user.id}
+          className="absolute flex flex-col items-center pointer-events-none opacity-0 transition-opacity duration-300"
           style={{
-            transform: `translate(${cursor.x}px, ${cursor.y}px)`,
+            left: 0,
+            top: 0,
+            transform: 'translate3d(0, 0, 0)',
+            willChange: 'transform',
           }}
         >
-          {cursor.avatar ? (
+          {user.avatar ? (
             <div style={{ transform: `scale(${1 / scale}) translateY(-50%)`, transformOrigin: 'bottom center' }}>
-               <AvatarPreview config={cursor.avatar} size={32} />
+               <AvatarPreview config={user.avatar} size={32} />
             </div>
           ) : (
             <MousePointer2 className="w-5 h-5 text-paper-accent fill-paper-accent stroke-white drop-shadow-md" />
@@ -66,7 +66,7 @@ export const LiveCursors = ({ scale }: LiveCursorsProps) => {
             className="mt-1 px-2 py-0.5 bg-paper-accent text-white text-xs font-bold rounded-full shadow-sm whitespace-nowrap"
             style={{ transform: `scale(${1 / scale})`, transformOrigin: 'top center' }}
           >
-            {cursor.nickname}
+            {user.nickname}
           </div>
         </div>
       ))}

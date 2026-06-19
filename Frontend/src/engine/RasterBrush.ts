@@ -188,6 +188,18 @@ export class RasterBrush {
     e.stopPropagation();
 
     const { x, y, pressure } = this._getCanvasPoint(e);
+
+    // Throttling: Skip points that are closer than 2 logical pixels to the last point
+    // to prevent CPU/math exhaustion during long strokes (especially on mobile touch events)
+    const lastPt = this.inputPoints[this.inputPoints.length - 1];
+    if (lastPt) {
+      const dx = x - lastPt[0];
+      const dy = y - lastPt[1];
+      if (dx * dx + dy * dy < 4) { // 2px squared = 4
+        return;
+      }
+    }
+
     this.inputPoints.push([x, y, pressure]);
     this.dirty = true;
 

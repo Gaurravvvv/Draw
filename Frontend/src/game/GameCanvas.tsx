@@ -16,7 +16,8 @@ const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 
 function initCanvas(canvas: HTMLCanvasElement, w: number, h: number): CanvasRenderingContext2D {
-  const dpr = window.devicePixelRatio || 1;
+  // Cap devicePixelRatio at 2.0 to prevent performance drops on mobile
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   canvas.style.width = `${w}px`;
@@ -112,18 +113,21 @@ export function GameCanvas({ locked, onSnapshot, snapshotInterval = 2000 }: Game
   // IMPORTANT: We must composite white behind the drawing before JPEG export.
   // The canvas background is white only via CSS — the actual canvas pixels are
   // transparent. JPEG has no alpha channel, so transparent pixels become BLACK.
+  // We also scale down the spectator snapshot to 320x180 to prevent heavy CPU and network overhead.
   useEffect(() => {
     if (!onSnapshot || locked) return;
     const interval = setInterval(() => {
       const canvas = mainRef.current;
       if (!canvas) return;
+      const thumbW = 320;
+      const thumbH = 180;
       const offscreen = document.createElement('canvas');
-      offscreen.width = canvas.width;
-      offscreen.height = canvas.height;
+      offscreen.width = thumbW;
+      offscreen.height = thumbH;
       const ctx = offscreen.getContext('2d')!;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-      ctx.drawImage(canvas, 0, 0);
+      ctx.fillRect(0, 0, thumbW, thumbH);
+      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, thumbW, thumbH);
       // JPEG quality 0.4 — visually fine, ~10x smaller than PNG
       const jpegBase64 = offscreen.toDataURL('image/jpeg', 0.4);
       onSnapshot(jpegBase64);
@@ -310,20 +314,23 @@ export function GameCanvas({ locked, onSnapshot, snapshotInterval = 2000 }: Game
     };
   }, [getCanvasPoint]);
 
-  // ── Export canvas as PNG (with white background) ──
+  // ── Export canvas as JPEG (with white background) ──
   // White must be painted explicitly — canvas pixels are transparent by default.
-  // Without this, the PNG sent to Gemini is blank/transparent and scores 0.
+  // Without this, the image sent to Gemini is blank/transparent and scores 0.
+  // We scale down the final upload to max 1024x576 and use JPEG to optimize network transfer and scoring times.
   const exportCanvas = useCallback((): string => {
     const canvas = mainRef.current;
     if (!canvas) return '';
+    const maxW = 1024;
+    const maxH = 576;
     const offscreen = document.createElement('canvas');
-    offscreen.width = canvas.width;
-    offscreen.height = canvas.height;
+    offscreen.width = maxW;
+    offscreen.height = maxH;
     const ctx = offscreen.getContext('2d')!;
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-    ctx.drawImage(canvas, 0, 0);
-    return offscreen.toDataURL('image/png');
+    ctx.fillRect(0, 0, maxW, maxH);
+    ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, maxW, maxH);
+    return offscreen.toDataURL('image/jpeg', 0.85);
   }, []);
 
   // Expose export method via ref on window

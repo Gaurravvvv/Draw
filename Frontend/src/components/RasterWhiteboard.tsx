@@ -30,7 +30,8 @@ const CANVAS_H = 1080;
 // ─── Canvas Initialization ───────────────────────────────────────────────────
 
 function initCanvas(canvas: HTMLCanvasElement, w: number, h: number): CanvasRenderingContext2D {
-  const dpr = window.devicePixelRatio || 1;
+  // Cap devicePixelRatio at 2.0 to prevent performance drops on mobile
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   canvas.style.width = `${w}px`;
@@ -685,9 +686,22 @@ export const RasterWhiteboard = ({ roomId, nickname, isCreating }: RasterWhitebo
     const canvas = mainRef.current;
     if (!canvas) return;
 
+    // Create an offscreen canvas to paint a white background before exporting
+    const offscreen = document.createElement('canvas');
+    offscreen.width = canvas.width;
+    offscreen.height = canvas.height;
+    const ctx = offscreen.getContext('2d')!;
+    
+    // Draw white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    
+    // Draw the drawings on top
+    ctx.drawImage(canvas, 0, 0);
+
     const link = document.createElement('a');
     link.download = `drawwww-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = offscreen.toDataURL('image/png');
     link.click();
   }, [exportTrigger]);
 
