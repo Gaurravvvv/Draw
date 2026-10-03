@@ -3,7 +3,7 @@ import { RasterWhiteboard } from './components/RasterWhiteboard';
 import { Toolbar } from './components/Toolbar';
 import { Toast } from './components/Toast';
 import { useStore } from './store';
-import { Copy, LogOut, X, Lock, LockOpen, Crown, Pencil, ArrowRight, Gamepad2, MessageCircle } from 'lucide-react';
+import { Copy, LogOut, X, Lock, LockOpen, Crown, Pencil, ArrowRight, Gamepad2, MessageCircle, AlertTriangle } from 'lucide-react';
 import { AvatarEditor } from './components/AvatarEditor';
 import { AvatarPreview } from './components/AvatarPreview';
 import { playDing } from './engine/audio';
@@ -120,6 +120,17 @@ export default function App() {
             <h1 className="text-3xl font-bold text-gray-800">Drawwww</h1>
           </div>
 
+          {/* Backend Down Card */}
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-3.5 flex items-start gap-3">
+            <AlertTriangle className="text-amber-600 w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm">
+              <p className="font-bold text-amber-950">Backend is Temporarily Down</p>
+              <p className="text-amber-800/90 mt-0.5 leading-snug">
+                The server is temporarily offline for maintenance. Online multiplayer and rooms may be unavailable.
+              </p>
+            </div>
+          </div>
+
           <form onSubmit={handleAuthSubmit} className="flex flex-col gap-5">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Nickname</label>
@@ -172,6 +183,17 @@ export default function App() {
           <div className="text-center">
             <p className="text-gray-500">Welcome back,</p>
             <p className="text-xl font-bold text-gray-800">{user.username}</p>
+          </div>
+
+          {/* Backend Down Card */}
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-3.5 flex items-start gap-3">
+            <AlertTriangle className="text-amber-600 w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm">
+              <p className="font-bold text-amber-950">Backend is Temporarily Down</p>
+              <p className="text-amber-800/90 mt-0.5 leading-snug">
+                The server is temporarily offline for maintenance. Online multiplayer and rooms may be unavailable.
+              </p>
+            </div>
           </div>
 
           <button
